@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+{% block title %}Fechamento Mensal - {{ dados.nome_mes }}/{{ dados.ano }} - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full max-w-[1400px] mx-auto print:p-0" x-data="{
+    tabAtiva: 'combustiveis',
+    buscaNf: '',
+    buscaEquip: ''
+}">
+
+    <!-- Cabeçalho e Ações -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-700 pb-4 print:hidden">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">📅</span>
+                <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Fechamento Mensal de Combustíveis</h1>
+            </div>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                Balanço mensal individualizado por combustível e por reservatório (Saldo Inicial, Entradas, Saídas e Saldo Final)
+            </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ url_for('relatorios.exportar_resumo_mensal_excel', obra_id=obra_id_sel, ano=ano_sel, mes=mes_sel) }}"
+               class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg font-bold text-xs shadow-sm transition">
+                <span>📗</span> Exportar Excel
+            </a>
+            <a href="{{ url_for('relatorios.exportar_resumo_mensal_pdf', obra_id=obra_id_sel, ano=ano_sel, mes=mes_sel) }}"
+               class="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-lg font-bold text-xs shadow-sm transition">
+                <span>📕</span> Exportar PDF
+            </a>
+            <button onclick="window.print()"
+                    class="inline-flex items-center gap-1.5 bg-slate-700 hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg font-bold text-xs shadow-sm transition">
+                <span>🖨️</span> Imprimir
+            </button>
+            <a href="{{ url_for('relatorios.historico_obra', obra_id=obra_id_sel) }}"
+               class="inline-flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 px-3.5 py-2 rounded-lg font-bold text-xs transition">
+                <span>📊</span> Histórico Anual
+            </a>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros e Navegação Rápida de Meses -->
+    <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
+        <form method="GET" action="{{ url_for('relatorios.resumo_mensal') }}" class="flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-4">
+            
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1">
+                <!-- Seletor de Obra -->
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Obra
+                    </label>
+                    <select name="obra_id" onchange="this.form.submit()"
+                            class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100 text-sm font-semibold">
+                        {% for obra in obras_lista %}
+                        <option value="{{ obra.id }}" {% if obra_id_sel == obra.id|string %}selected{% endif %}>
+                            🏗️ {{ obra.codigo }} - {{ obra.nome[:45] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Seletor de Mês/Ano -->
+                <div class="w-full sm:w-56">
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Mês de Referência
+                    </label>
+                    <select name="periodo_combo" onchange="
+                            const [ano, mes] = this.value.split('-');
+                            document.getElementById('inputAno').value = ano;
+                            document.getElementById('inputMes').value = mes;
+                            this.form.submit();
+                        "
+                        class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100 text-sm font-semibold">
+                        {% for a, m, rotulo in meses_disponiveis %}
+                        <option value="{{ a }}-{{ m }}" {% if a == ano_sel and m == mes_sel %}selected{% endif %}>
+                            📅 {{ rotulo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="ano" id="inputAno" value="{{ ano_sel }}">
+                    <input type="hidden" name="mes" id="inputMes" value="{{ mes_sel }}">
+                </div>
+
+                <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition">
+                    Filtrar
+                </button>
+            </div>
+
+            <!-- Botões Mês Anterior / Mês Seguinte -->
+            <div class="flex items-center gap-2 self-center lg:self-end pt-2 lg:pt-0">
+                <a href="{{ url_for('relatorios.resumo_mensal', obra_id=obra_id_sel, ano=dados.ano_ant, mes=dados.mes_ant) }}"
+                   class="inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition"
+                   title="Ir para o mês anterior">
+                    ← {{ dados.nome_mes_anterior }}
+                </a>
+                
+                <span class="px-3 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-500/20">
+                    {{ dados.nome_mes }} / {{ dados.ano }}
+                </span>
+
+                <a href="{{ url_for('relatorios.resumo_mensal', obra_id=obra_id_sel, ano=dados.ano_prox, mes=dados.mes_prox) }}"
+                   class="inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition"
+                   title="Ir para o próximo mês">
+                    Próximo →
+                </a>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- Banner da Obra e Mês Selecionados -->
+    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 text-white shadow-md border border-slate-700">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-xl">
+                    ⛽
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-black tracking-wide">{{ dados.obra.nome if dados.obra else 'Todas as Obras' }}</h2>
+                        {% if dados.obra %}
+                        <span class="bg-blue-500/30 text-blue-300 text-xs px-2 py-0.5 rounded font-mono font-bold border border-blue-400/30">
+                            {{ dados.obra.codigo }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300 mt-0.5">
+                        <span>🗓️ <strong>Período:</strong> {{ dados.data_inicio.strftime('%d/%m/%Y') }} até {{ dados.data_fim.strftime('%d/%m/%Y') }}</span>
+                        {% if dados.obra and dados.obra.local %}
+                        <span>| 📍 {{ dados.obra.local }}</span>
+                        {% endif %}
+                        {% if dados.obra and dados.obra.responsavel %}
+                        <span>| 👷 {{ dados.obra.responsavel }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Badges Resumo -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg text-xs font-bold">
+                    ⛽ {{ dados.resumo_combustiveis|length }} Combustíveis
+                </span>
+                <span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded-lg text-xs font-bold">
+                    🛢️ {{ dados.balanco_tanques|length }} Tanques / Comboios
+                </span>
+                <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-bold">
+                    📥 {{ dados.entradas_nfs|length }} NFs Recebidas
+                </span>
+                <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg text-xs font-bold">
+                    🚜 {{ dados.consumo_equipamentos|length }} Máquinas Atendidas
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABAS DE NAVEGAÇÃO INTERNA -->
+    <div class="border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 overflow-x-auto print:hidden">
+        <button @click="tabAtiva = 'combustiveis'"
+                :class="tabAtiva === 'combustiveis' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'"
+                class="px-4 py-2.5 border-b-2 text-sm flex items-center gap-2 whitespace-nowrap transition">
+            <span>⛽</span> Por Combustível ({{ dados.resumo_combustiveis|length }})
+        </button>
+
+        <button @click="tabAtiva = 'tanques'"
+                :class="tabAtiva === 'tanques' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'"
+                class="px-4 py-2.5 border-b-2 text-sm flex items-center gap-2 whitespace-nowrap transition">
+            <span>🛢️</span> Por Tanque ({{ dados.balanco_tanques|length }})
+        </button>
+
+        <button @click="tabAtiva = 'nfs'"
+                :class="tabAtiva === 'nfs' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'"
+                class="px-4 py-2.5 border-b-2 text-sm flex items-center gap-2 whitespace-nowrap transition">
+            <span>📥</span> Notas Fiscais Recebidas ({{ dados.entradas_nfs|length }})
+        </button>
+
+        <button @click="tabAtiva = 'equipamentos'"
+                :class="tabAtiva === 'equipamentos' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium'"
+                class="px-4 py-2.5 border-b-2 text-sm flex items-center gap-2 whitespace-nowrap transition">
+            <span>🚜</span> Consumo por Equipamento ({{ dados.consumo_equipamentos|length }})
+        </button>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- ABA 1: POR COMBUSTÍVEL (CARDS CONSOLIDADOS POR COMBUSTÍVEL) -->
+    <!-- ======================================================== -->
+    <div x-show="tabAtiva === 'combustiveis'" class="space-y-4">
+        
+        {% for c in dados.resumo_combustiveis %}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3.5 shadow-sm space-y-2.5">
+            
+            <!-- Cabeçalho do Combustível -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 border-b border-slate-200 dark:border-slate-700 pb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">
+                        {% if 'DIESEL S10' in c.tipo %}🟢{% elif 'DIESEL S500' in c.tipo %}🔴{% elif 'GASOLINA' in c.tipo %}🟡{% elif 'ARLA' in c.tipo %}💧{% elif 'OLEO' in c.tipo %}🛢️{% else %}⚡{% endif %}
+                    </span>
+                    <div>
+                        <h2 class="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                            {{ c.tipo }}
+                            <span class="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                {{ c.tanques|length }} tanque{% if c.tanques|length > 1 %}s / comboios{% endif %}
+                            </span>
+                        </h2>
+                        <p class="text-[11px] text-slate-400">
+                            Capacidade Total: <strong class="text-slate-600 dark:text-slate-300">{{ "%.0f"|format(c.capacidade) }} L</strong>
+                            {% if c.capacidade > 0 %}
+                            | Ocupação Final: <strong class="text-blue-600 dark:text-blue-400">{{ "%.1f"|format(c.percentual) }}%</strong>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    Disponível no Fim de {{ dados.nome_mes }}: <strong>{{ "%.0f"|format(c.saldo_final) }} L</strong>
+                </div>
+            </div>
+
+            <!-- Quarteto de Cards: TOTAL CONSOLIDADO DO COMBUSTÍVEL -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                
+                <!-- 1. Saldo Inicial -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-slate-500">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">
+                        <span>Saldo Inicial</span>
+                        <span class="text-[9px] bg-slate-100 dark:bg-slate-700 px-1 py-0.2 rounded text-slate-600 dark:text-slate-300 font-semibold">Final de {{ dados.nome_mes_anterior }}</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-slate-800 dark:text-slate-100">{{ "%.0f"|format(c.saldo_anterior) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 leading-tight">Disponível nos tanques de {{ c.tipo }} em 01/{{ "%02d"|format(dados.mes) }}</p>
+                </div>
+
+                <!-- 2. Entradas NF -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-emerald-500">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-0.5">
+                        <span>(+) Entradas NF</span>
+                        <span class="text-[9px] bg-emerald-50 dark:bg-emerald-900/30 px-1 py-0.2 rounded text-emerald-700 dark:text-emerald-300 font-semibold">Recebidas no mês</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-emerald-600 dark:text-emerald-400">+{{ "%.0f"|format(c.entradas_nf) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 leading-tight">Total de combustível recebido via Nota Fiscal</p>
+                </div>
+
+                <!-- 3. Saídas / Consumo -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-amber-500">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-0.5">
+                        <span>(-) Saídas / Consumo</span>
+                        <span class="text-[9px] bg-amber-50 dark:bg-amber-900/30 px-1 py-0.2 rounded text-amber-700 dark:text-amber-300 font-semibold">Abastecimentos</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-amber-600 dark:text-amber-400">-{{ "%.0f"|format(c.saidas) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 leading-tight">Total consumido nos abastecimentos da frota</p>
+                </div>
+
+                <!-- 4. Saldo Final -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-blue-600">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-0.5">
+                        <span>(=) Saldo Final</span>
+                        <span class="text-[9px] bg-blue-50 dark:bg-blue-900/30 px-1 py-0.2 rounded text-blue-700 dark:text-blue-300 font-semibold">Fim de {{ dados.nome_mes }}</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-blue-600 dark:text-blue-400">{{ "%.0f"|format(c.saldo_final) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 leading-tight">
+                        <span>Variação: <strong class="{% if c.variacao_mes >= 0 %}text-emerald-500{% else %}text-rose-500{% endif %}">{% if c.variacao_mes > 0 %}+{% endif %}{{ "%.0f"|format(c.variacao_mes) }} L</strong></span>
+                        {% if c.capacidade > 0 %}
+                        <span>{{ "%.0f"|format(c.percentual) }}% da cap.</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- ABA 2: POR TANQUE (CARDS CONSOLIDADOS POR TANQUE/COMBOIO) -->
+    <!-- ======================================================== -->
+    <div x-show="tabAtiva === 'tanques'" class="space-y-4" x-cloak>
+        
+        {% for t in dados.balanco_tanques %}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3.5 shadow-sm space-y-2.5">
+            
+            <!-- Cabeçalho do Tanque / Comboio -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 border-b border-slate-200 dark:border-slate-700 pb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">
+                        {% if t.categoria == 'Comboio' %}🚜{% else %}🛢️{% endif %}
+                    </span>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-sm font-black text-slate-800 dark:text-slate-100">{{ t.nome }}</h2>
+                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded {% if t.categoria == 'Comboio' %}bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300{% else %}bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+                                {{ t.categoria }}
+                            </span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                                {{ t.tipo_combustivel }}
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">
+                            Capacidade: <strong class="text-slate-600 dark:text-slate-300">{{ "%.0f"|format(t.capacidade) }} L</strong>
+                            {% if t.capacidade > 0 %}
+                            | Ocupação Final: <strong class="text-blue-600 dark:text-blue-400">{{ "%.1f"|format(t.percentual) }}%</strong>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    Disponível no Fim de {{ dados.nome_mes }}: <strong>{{ "%.0f"|format(t.saldo_final) }} L</strong>
+                </div>
+            </div>
+
+            <!-- Quarteto de Cards: TOTAL CONSOLIDADO DO TANQUE -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                
+                <!-- 1. Saldo Inicial do Tanque -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-slate-500">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">
+                        <span>Saldo Inicial</span>
+                        <span class="text-[9px] bg-slate-100 dark:bg-slate-700 px-1 py-0.2 rounded text-slate-600 dark:text-slate-300 font-semibold">Final de {{ dados.nome_mes_anterior }}</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-slate-800 dark:text-slate-100">{{ "%.0f"|format(t.saldo_anterior) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 leading-tight">Disponível neste reservatório em 01/{{ "%02d"|format(dados.mes) }}</p>
+                </div>
+
+                <!-- 2. Entradas / Transb. Recebido -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-emerald-500">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-0.5">
+                        <span>(+) Entradas / Receb.</span>
+                        <span class="text-[9px] bg-emerald-50 dark:bg-emerald-900/30 px-1 py-0.2 rounded text-emerald-700 dark:text-emerald-300 font-semibold">NF + Transbordo</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-emerald-600 dark:text-emerald-400">+{{ "%.0f"|format(t.entradas_nf + t.transf_rec) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+                        {% if t.transf_rec > 0 %}
+                        NF: <strong>{{ "%.0f"|format(t.entradas_nf) }} L</strong> | Transb: <strong>+{{ "%.0f"|format(t.transf_rec) }} L</strong>
+                        {% else %}
+                        Total de entradas de combustível no mês
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- 3. Saídas / Transb. Enviado -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-amber-500">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-0.5">
+                        <span>(-) Saídas / Consumo</span>
+                        <span class="text-[9px] bg-amber-50 dark:bg-amber-900/30 px-1 py-0.2 rounded text-amber-700 dark:text-amber-300 font-semibold">Abast. + Transb.</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-amber-600 dark:text-amber-400">-{{ "%.0f"|format(t.saidas + t.transf_env) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+                        {% if t.transf_env > 0 %}
+                        Abast: <strong>{{ "%.0f"|format(t.saidas) }} L</strong> | Transb: <strong>-{{ "%.0f"|format(t.transf_env) }} L</strong>
+                        {% else %}
+                        Total abastecido na frota no mês
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- 4. Saldo Final do Tanque -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-blue-600">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-0.5">
+                        <span>(=) Saldo Final</span>
+                        <span class="text-[9px] bg-blue-50 dark:bg-blue-900/30 px-1 py-0.2 rounded text-blue-700 dark:text-blue-300 font-semibold">Fim de {{ dados.nome_mes }}</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-black text-blue-600 dark:text-blue-400">{{ "%.0f"|format(t.saldo_final) }}</span>
+                        <span class="text-xs font-semibold text-slate-400">Litros</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 leading-tight">
+                        <span>Variação: <strong class="{% if t.variacao_mes >= 0 %}text-emerald-500{% else %}text-rose-500{% endif %}">{% if t.variacao_mes > 0 %}+{% endif %}{{ "%.0f"|format(t.variacao_mes) }} L</strong></span>
+                        {% if t.capacidade > 0 %}
+                        <span>{{ "%.0f"|format(t.percentual) }}% da cap.</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- ABA 3: NOTAS FISCAIS RECEBIDAS -->
+    <!-- ======================================================== -->
+    <div x-show="tabAtiva === 'nfs'" class="space-y-4" x-cloak>
+        <div class="flex justify-between items-center gap-4 flex-wrap">
+            <div class="relative flex-1 max-w-md">
+                <input type="text" x-model="buscaNf" placeholder="🔍 Buscar por NF, fornecedor, combustível..."
+                       class="w-full px-3.5 py-2 pl-9 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500">
+                <span class="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">
+                Total de <strong>{{ dados.entradas_nfs|length }} notas fiscais</strong> recebidas em {{ dados.nome_mes }}/{{ dados.ano }}
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 uppercase text-xs font-semibold">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Data</th>
+                            <th class="px-4 py-3 text-center">Nº NF</th>
+                            <th class="px-4 py-3 text-left">Fornecedor / Destino</th>
+                            <th class="px-4 py-3 text-left">Combustível / Insumo</th>
+                            <th class="px-4 py-3 text-right">Volume (L/Kg)</th>
+                            <th class="px-4 py-3 text-left">Registrado Por</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                        {% for nf in dados.entradas_nfs %}
+                        <tr x-show="!buscaNf || '{{ nf.numero_nf or '' }} {{ nf.fornecedor_rel.nome if nf.fornecedor_rel else '' }} {{ nf.categoria_insumo }}'.toLowerCase().includes(buscaNf.toLowerCase())"
+                            class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                            <td class="px-4 py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                {{ nf.data_entrada.strftime('%d/%m/%Y') }}
+                            </td>
+                            <td class="px-4 py-3 text-center font-mono font-bold text-slate-800 dark:text-slate-100">
+                                {{ nf.numero_nf or 'S/N' }}
+                            </td>
+                            <td class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">
+                                {{ nf.fornecedor_rel.nome if nf.fornecedor_rel else '-' }}
+                            </td>
+                            <td class="px-4 py-3 text-slate-600 dark:text-slate-300">
+                                <span class="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                    {{ nf.categoria_insumo }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                {{ "%.2f"|format(nf.quantidade) }} L
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                                {{ nf.usuario_rel.nome if nf.usuario_rel else '-' }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                                Nenhuma nota fiscal registrada em {{ dados.nome_mes }}/{{ dados.ano }}.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- ABA 4: CONSUMO POR EQUIPAMENTO E LOCADOR -->
+    <!-- ======================================================== -->
+    <div x-show="tabAtiva === 'equipamentos'" class="space-y-6" x-cloak>
+        
+        <!-- Cards de Locadores -->
+        <div>
+            <h3 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                🚜 Consumo por Locador / Frota
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {% for loc in dados.consumo_locadores %}
+                {% set perc_loc = (loc.total_litros / dados.totais.saidas * 100) if dados.totais.saidas > 0 else 0 %}
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-amber-500">
+                    <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
+                        {{ loc.locador }}
+                    </div>
+                    <div class="flex items-baseline justify-between mt-1">
+                        <span class="text-xl font-extrabold text-slate-800 dark:text-slate-100">{{ "%.0f"|format(loc.total_litros) }} L</span>
+                        <span class="text-xs font-bold text-amber-600">{{ "%.1f"|format(perc_loc) }}%</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">{{ loc.total_abastecimentos }} abastecimentos</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tabela Detalhada de Consumo por Equipamento -->
+        <div class="space-y-3">
+            <div class="flex justify-between items-center gap-4 flex-wrap">
+                <div class="relative flex-1 max-w-md">
+                    <input type="text" x-model="buscaEquip" placeholder="🔍 Buscar por placa, descrição, tipo, locador..."
+                           class="w-full px-3.5 py-2 pl-9 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500">
+                    <span class="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+                </div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">
+                    <strong>{{ dados.consumo_equipamentos|length }} equipamentos</strong> abastecidos no mês
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 uppercase text-xs font-semibold">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Placa / Prefixo</th>
+                                <th class="px-4 py-3 text-left">Descrição / Modelo</th>
+                                <th class="px-3 py-3 text-left">Tipo</th>
+                                <th class="px-4 py-3 text-left">Locador</th>
+                                <th class="px-3 py-3 text-center">Combustível</th>
+                                <th class="px-3 py-3 text-center">Abastec.</th>
+                                <th class="px-4 py-3 text-right">Volume Consumido</th>
+                                <th class="px-3 py-3 text-center">% do Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                            {% for eq in dados.consumo_equipamentos %}
+                            {% set perc_eq = (eq.total_litros / dados.totais.saidas * 100) if dados.totais.saidas > 0 else 0 %}
+                            <tr x-show="!buscaEquip || '{{ eq.prefixo_placa }} {{ eq.descricao or '' }} {{ eq.tipo_equipamento or '' }} {{ eq.locador or '' }}'.toLowerCase().includes(buscaEquip.toLowerCase())"
+                                class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                                <td class="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                    {{ eq.prefixo_placa }}
+                                </td>
+                                <td class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">
+                                    {{ eq.descricao or '-' }}
+                                </td>
+                                <td class="px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
+                                    {{ eq.tipo_equipamento or '-' }}
+                                </td>
+                                <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                                    {{ eq.locador or '-' }}
+                                </td>
+                                <td class="px-3 py-3 text-center text-xs">
+                                    <span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300">
+                                        {{ eq.categoria_insumo }}
+                                    </span>
+                                </td>
+                                <td class="px-3 py-3 text-center font-mono text-slate-600 dark:text-slate-300">
+                                    {{ eq.total_abastecimentos }}
+                                </td>
+                                <td class="px-4 py-3 text-right font-mono font-extrabold text-amber-600 dark:text-amber-400">
+                                    {{ "%.2f"|format(eq.total_litros) }} L
+                                </td>
+                                <td class="px-3 py-3 text-center font-mono text-xs text-slate-500">
+                                    {{ "%.1f"|format(perc_eq) }}%
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-slate-400">
+                                    Nenhum consumo registrado em {{ dados.nome_mes }}/{{ dados.ano }}.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Histórico Mensal por Obra - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full max-w-[1400px] mx-auto">
+
+    <!-- Cabeçalho -->
+    <div class="border-b border-slate-200 dark:border-slate-700 pb-4">
+        <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">📊 Histórico Mensal por Obra</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            Entradas (NFs) e saídas (abastecimentos) agrupadas por mês e tipo de combustível
+        </p>
+    </div>
+
+    <!-- Filtro de Obra -->
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <form method="GET" action="{{ url_for('relatorios.historico_obra') }}" class="flex flex-col sm:flex-row items-end gap-4">
+            <div class="flex-1 min-w-[220px]">
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Obra <span class="text-red-500">*</span>
+                </label>
+                <select name="obra_id" required
+                        class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100 text-sm">
+                    <option value="">-- Selecione a Obra --</option>
+                    {% for obra in obras_lista %}
+                    <option value="{{ obra.id }}" {% if obra_id_sel == obra.id|string %}selected{% endif %}>
+                        🏗️ {{ obra.codigo }} - {{ obra.nome[:60] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" name="pagina" value="1">
+            <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm transition text-sm whitespace-nowrap">
+                🔍 Consultar
+            </button>
+            {% if obra_sel %}
+            <a href="{{ url_for('relatorios.historico_obra') }}"
+               class="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg transition">
+                ✕ Limpar
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if obra_sel %}
+
+    <!-- Cabeçalho da Obra Selecionada -->
+    <div class="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-900 dark:to-slate-800 rounded-xl px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">🏗️</span>
+            <div>
+                <h2 class="text-lg font-bold text-white">{{ obra_sel.nome }}</h2>
+                <div class="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                    <span>{{ obra_sel.codigo }}</span>
+                    {% if obra_sel.local %}<span>| 📍 {{ obra_sel.local[:50] }}</span>{% endif %}
+                    {% if obra_sel.responsavel %}<span>| 👷 {{ obra_sel.responsavel }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if total_paginas > 1 %}
+        <span class="text-xs text-slate-400 bg-slate-900/50 px-3 py-1 rounded-full">
+            Página {{ pagina }} de {{ total_paginas }} &mdash; 12 meses por página
+        </span>
+        {% endif %}
+    </div>
+
+    {% if meses_dados %}
+
+    <!-- Coletar tipos únicos presentes na página -->
+    {% set tipos_entrada_all = [] %}
+    {% set tipos_saida_all = [] %}
+    {% for m in meses_dados %}
+        {% for t in m.entradas.keys() %}
+            {% if t not in tipos_entrada_all %}{% set _ = tipos_entrada_all.append(t) %}{% endif %}
+        {% endfor %}
+        {% for t in m.saidas.keys() %}
+            {% if t not in tipos_saida_all %}{% set _ = tipos_saida_all.append(t) %}{% endif %}
+        {% endfor %}
+    {% endfor %}
+
+    <!-- Tabela Principal -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <!-- Legenda -->
+        <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 text-xs font-semibold">
+            <span class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
+                Entradas (NF recebida)
+            </span>
+            <span class="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <span class="inline-block w-3 h-3 rounded-full bg-amber-500"></span>
+                Saídas (Abastecimentos)
+            </span>
+            <span class="ml-auto text-slate-400 font-normal">Valores em Litros (L) / Kg | Saldo = Entrada - Saída</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 uppercase text-xs font-semibold">
+                    <tr>
+                        <th class="px-4 py-3 text-left sticky left-0 bg-slate-50 dark:bg-slate-900/60 z-10 min-w-[95px]">Mês/Ano</th>
+
+                        {% for tipo in tipos_entrada_all %}
+                        <th class="px-3 py-3 text-right whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                            {{ tipo | replace('DIESEL ', 'D.') | replace('GASOLINA COMUM', 'Gas.') | replace('OLEO LUBRIFICANTE', 'Óleo') | replace('ARLA 32', 'ARLA') }}
+                            <br><span class="text-[10px] normal-case font-normal text-emerald-500">(NF Entrada)</span>
+                        </th>
+                        {% endfor %}
+                        {% if tipos_entrada_all %}
+                        <th class="px-3 py-3 text-right whitespace-nowrap text-emerald-700 dark:text-emerald-300 border-l border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/10">
+                            Total Ent.
+                        </th>
+                        {% endif %}
+
+                        <th class="px-1 py-3 bg-slate-200 dark:bg-slate-600/50 w-1"></th>
+
+                        {% for tipo in tipos_saida_all %}
+                        <th class="px-3 py-3 text-right whitespace-nowrap text-amber-600 dark:text-amber-400">
+                            {{ tipo | replace('DIESEL ', 'D.') | replace('GASOLINA COMUM', 'Gas.') | replace('OLEO LUBRIFICANTE', 'Óleo') | replace('ARLA 32', 'ARLA') }}
+                            <br><span class="text-[10px] normal-case font-normal text-amber-500">(Saída)</span>
+                        </th>
+                        {% endfor %}
+                        {% if tipos_saida_all %}
+                        <th class="px-3 py-3 text-right whitespace-nowrap text-amber-700 dark:text-amber-300 border-l border-slate-200 dark:border-slate-700 bg-amber-50 dark:bg-amber-900/10">
+                            Total Saí.
+                        </th>
+                        {% endif %}
+
+                        <th class="px-3 py-3 text-right whitespace-nowrap text-blue-700 dark:text-blue-300 border-l-2 border-slate-300 dark:border-slate-600 bg-blue-50 dark:bg-blue-900/10">
+                            Saldo
+                        </th>
+
+                        <th class="px-3 py-3 text-center whitespace-nowrap text-slate-500 dark:text-slate-400">
+                            Ações
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    {% for m in meses_dados %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                        <!-- Mês/Ano -->
+                        <td class="px-4 py-3 sticky left-0 bg-white dark:bg-slate-800 z-10 font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap border-r border-slate-100 dark:border-slate-700">
+                            <a href="{{ url_for('relatorios.resumo_mensal', obra_id=obra_sel.id, ano=m.ano, mes=m.mes) }}"
+                               class="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5"
+                               title="Ver fechamento detalhado deste mês">
+                                <span>📅</span> {{ m.mes_nome }}/{{ m.ano }}
+                            </a>
+                        </td>
+
+                        <!-- Entradas por tipo -->
+                        {% for tipo in tipos_entrada_all %}
+                        {% set val = m.entradas.get(tipo, 0) %}
+                        <td class="px-3 py-3 text-right font-mono text-sm {% if val > 0 %}text-emerald-700 dark:text-emerald-300 font-semibold{% else %}text-slate-300 dark:text-slate-600{% endif %}">
+                            {% if val > 0 %}{{ "%.0f"|format(val) }}{% else %}&ndash;{% endif %}
+                        </td>
+                        {% endfor %}
+                        {% if tipos_entrada_all %}
+                        <td class="px-3 py-3 text-right font-extrabold font-mono text-emerald-700 dark:text-emerald-300 border-l border-slate-200 dark:border-slate-700 bg-emerald-50/50 dark:bg-emerald-900/10">
+                            {% if m.total_entrada > 0 %}{{ "%.0f"|format(m.total_entrada) }}{% else %}&ndash;{% endif %}
+                        </td>
+                        {% endif %}
+
+                        <!-- Separador -->
+                        <td class="px-1 py-3 bg-slate-100 dark:bg-slate-700/30"></td>
+
+                        <!-- Saídas por tipo -->
+                        {% for tipo in tipos_saida_all %}
+                        {% set val = m.saidas.get(tipo, 0) %}
+                        <td class="px-3 py-3 text-right font-mono text-sm {% if val > 0 %}text-amber-700 dark:text-amber-300 font-semibold{% else %}text-slate-300 dark:text-slate-600{% endif %}">
+                            {% if val > 0 %}{{ "%.0f"|format(val) }}{% else %}&ndash;{% endif %}
+                        </td>
+                        {% endfor %}
+                        {% if tipos_saida_all %}
+                        <td class="px-3 py-3 text-right font-extrabold font-mono text-amber-700 dark:text-amber-300 border-l border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-900/10">
+                            {% if m.total_saida > 0 %}{{ "%.0f"|format(m.total_saida) }}{% else %}&ndash;{% endif %}
+                        </td>
+                        {% endif %}
+
+                        <!-- Saldo do mês -->
+                        {% set saldo = m.total_entrada - m.total_saida %}
+                        <td class="px-3 py-3 text-right font-extrabold font-mono border-l-2 border-slate-300 dark:border-slate-600
+                            {% if saldo > 0 %}text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10
+                            {% elif saldo < 0 %}text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-900/10
+                            {% else %}text-slate-400{% endif %}">
+                            {% if saldo > 0 %}+{% endif %}{% if saldo != 0 %}{{ "%.0f"|format(saldo) }}{% else %}&ndash;{% endif %}
+                        </td>
+
+                        <!-- Ações -->
+                        <td class="px-3 py-3 text-center">
+                            <a href="{{ url_for('relatorios.resumo_mensal', obra_id=obra_sel.id, ano=m.ano, mes=m.mes) }}"
+                               class="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs px-2.5 py-1 rounded font-semibold transition"
+                               title="Abrir fechamento completo com estoque inicial de {{ m.mes_nome }}/{{ m.ano }}">
+                                <span>🔍</span> Fechamento
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Linha de Totais da Página -->
+                    <tr class="bg-slate-100 dark:bg-slate-700/70 font-bold text-xs uppercase tracking-wider border-t-2 border-slate-400 dark:border-slate-500">
+                        <td class="px-4 py-3 sticky left-0 bg-slate-100 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                            TOTAL ({{ meses_dados|length }} mês{% if meses_dados|length > 1 %}es{% endif %})
+                        </td>
+                        {% for tipo in tipos_entrada_all %}
+                        <td class="px-3 py-3 text-right font-mono text-emerald-800 dark:text-emerald-200">
+                            {{ "%.0f"|format(total_entradas_geral.get(tipo, 0)) }}
+                        </td>
+                        {% endfor %}
+                        {% if tipos_entrada_all %}
+                        <td class="px-3 py-3 text-right font-mono text-emerald-900 dark:text-emerald-100 border-l border-slate-300 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/20">
+                            {{ "%.0f"|format(total_entradas_geral.values()|sum) }}
+                        </td>
+                        {% endif %}
+                        <td class="px-1 py-3 bg-slate-200 dark:bg-slate-600/50"></td>
+                        {% for tipo in tipos_saida_all %}
+                        <td class="px-3 py-3 text-right font-mono text-amber-800 dark:text-amber-200">
+                            {{ "%.0f"|format(total_saidas_geral.get(tipo, 0)) }}
+                        </td>
+                        {% endfor %}
+                        {% if tipos_saida_all %}
+                        <td class="px-3 py-3 text-right font-mono text-amber-900 dark:text-amber-100 border-l border-slate-300 dark:border-slate-600 bg-amber-100 dark:bg-amber-900/20">
+                            {{ "%.0f"|format(total_saidas_geral.values()|sum) }}
+                        </td>
+                        {% endif %}
+                        {% set saldo_total = (total_entradas_geral.values()|sum) - (total_saidas_geral.values()|sum) %}
+                        <td class="px-3 py-3 text-right font-mono border-l-2 border-slate-400 dark:border-slate-500
+                            {% if saldo_total >= 0 %}text-blue-800 dark:text-blue-200 bg-blue-100 dark:bg-blue-900/20
+                            {% else %}text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-900/20{% endif %}">
+                            {% if saldo_total >= 0 %}+{% endif %}{{ "%.0f"|format(saldo_total) }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if total_paginas > 1 %}
+    <div class="flex items-center justify-center gap-2 flex-wrap pt-2">
+        {% if pagina > 1 %}
+        <a href="{{ url_for('relatorios.historico_obra', obra_id=obra_id_sel, pagina=pagina-1) }}"
+           class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1">
+            ← Mais Recente
+        </a>
+        {% endif %}
+        <div class="flex items-center gap-1">
+            {% for p in range(1, total_paginas + 1) %}
+            <a href="{{ url_for('relatorios.historico_obra', obra_id=obra_id_sel, pagina=p) }}"
+               class="w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition
+               {% if p == pagina %}bg-blue-600 text-white shadow{% else %}border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700{% endif %}">
+                {{ p }}
+            </a>
+            {% endfor %}
+        </div>
+        {% if pagina < total_paginas %}
+        <a href="{{ url_for('relatorios.historico_obra', obra_id=obra_id_sel, pagina=pagina+1) }}"
+           class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1">
+            Mais Antigo →
+        </a>
+        {% endif %}
+    </div>
+    <p class="text-center text-xs text-slate-400 mt-1">Página {{ pagina }} de {{ total_paginas }} • 12 meses por página</p>
+    {% endif %}
+
+    <!-- Cards de Resumo -->
+    {% if total_entradas_geral or total_saidas_geral %}
+    <div>
+        <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+            Resumo da Página Atual
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for tipo, total in total_entradas_geral.items() %}
+            {% if total > 0 %}
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 border-l-emerald-500 p-4 shadow-sm">
+                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    📥 {{ tipo }} — Entrada NF
+                </div>
+                <div class="flex items-end gap-2">
+                    <span class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{{ "%.0f"|format(total) }}</span>
+                    <span class="text-sm text-slate-500 dark:text-slate-400 mb-0.5">L</span>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {% for tipo, total in total_saidas_geral.items() %}
+            {% if total > 0 %}
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 border-l-amber-500 p-4 shadow-sm">
+                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    ⛽ {{ tipo }} — Saída (Abast.)
+                </div>
+                <div class="flex items-end gap-2">
+                    <span class="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{{ "%.0f"|format(total) }}</span>
+                    <span class="text-sm text-slate-500 dark:text-slate-400 mb-0.5">L</span>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Sem dados para esta obra -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 py-16 text-center">
+        <div class="text-5xl mb-4">📭</div>
+        <p class="text-slate-500 dark:text-slate-400 font-medium">
+            Nenhum dado encontrado para <strong class="text-slate-700 dark:text-slate-200">{{ obra_sel.nome }}</strong>.
+        </p>
+        <p class="text-sm text-slate-400 mt-2">
+            Verifique se existem NFs ou abastecimentos registrados para esta obra.
+        </p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Nenhuma obra selecionada -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 py-16 text-center">
+        <div class="text-5xl mb-4">🏗️</div>
+        <p class="text-slate-600 dark:text-slate-300 font-semibold text-lg">Selecione uma obra para ver o histórico</p>
+        <p class="text-sm text-slate-400 dark:text-slate-500 mt-2 max-w-md mx-auto">
+            Será exibida uma tabela com todas as entradas (NFs) e saídas agrupadas mês a mês,
+            organizadas por tipo de combustível, com saldo e totais.
+        </p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

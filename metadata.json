@@ -1,0 +1,6 @@
+{
+  "name": "T.A.N.K - Gestão de Frota",
+  "description": "Sistema de gestão de combustíveis, abastecimento de frotas, transbordo de tanques e controle multi-obras.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

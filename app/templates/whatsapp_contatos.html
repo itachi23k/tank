@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Contatos WhatsApp - T.A.N.K{% endblock %}
+
+{% block content %}
+<div x-data="{ 
+    openModal: false, 
+    editMode: false, 
+    contatoEdit: { id: '', nome: '', funcao: '', numero: '', horario_envio: '07:00', obras: [], receber_alertas: true }
+}" class="space-y-6">
+    
+    <!-- Cabeçalho -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-700 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white">📱 Contatos WhatsApp</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Gerencie destinatários, horários e obras vinculadas</p>
+        </div>
+        <div class="flex gap-2 mt-3 sm:mt-0">
+            <!-- Botão Envio Emergencial -->
+            <form action="{{ url_for('whatsapp.envio_emergencial') }}" method="POST" class="inline">
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition flex items-center gap-2"
+                        onclick="return confirm('Enviar alerta emergencial para TODOS os contatos ativos agora?')">
+                    🚨 Envio Emergencial
+                </button>
+            </form>
+            
+            <!-- Botão Novo Contato -->
+            <button @click="openModal = true; editMode = false; contatoEdit = { id: '', nome: '', funcao: '', numero: '', horario_envio: '07:00', obras: [], receber_alertas: true }" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Novo Contato
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Cadastro/Edição -->
+    <div x-show="openModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto" @click.away="openModal = false">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
+                <h3 class="text-lg font-bold" x-text="editMode ? '✏️ Editar Contato' : '➕ Novo Contato'"></h3>
+                <button @click="openModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            
+            <form action="{{ url_for('whatsapp.contatos') }}" method="POST" class="p-6 space-y-4">
+                <input type="hidden" name="contato_id" x-model="contatoEdit.id">
+                
+                <!-- Nome e Função -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Nome *</label>
+                        <input type="text" name="nome" required x-model="contatoEdit.nome" placeholder="Ex: João Silva"
+                               class="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Função</label>
+                        <input type="text" name="funcao" x-model="contatoEdit.funcao" placeholder="Ex: Gerente, Encarregado"
+                               class="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700">
+                    </div>
+                </div>
+                
+                <!-- Número -->
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Número WhatsApp *</label>
+                    <input type="text" name="numero" required x-model="contatoEdit.numero" placeholder="5592985518889"
+                           class="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700 font-mono">
+                    <p class="text-xs text-slate-500 mt-1">Formato: DDI + DDD + número (sem espaços, sem +)</p>
+                </div>
+                
+                <!-- Relógio Atual e Horário de Envio -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Relógio em tempo real -->
+                    <div x-data="{ agora: new Date() }" x-init="setInterval(() => { agora = new Date() }, 1000)" class="bg-slate-100 dark:bg-slate-900 rounded-lg p-3 border">
+                        <label class="block text-xs font-semibold mb-1">🕒 Hora Atual</label>
+                        <div class="text-2xl font-bold font-mono" x-text="agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })"></div>
+                    </div>
+
+                    <!-- Horário de Envio -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">🕐 Horário de Envio</label>
+                        <select x-model="contatoEdit.horario_envio"
+                                class="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700">
+                            <option value="06:00">06:00 - Início da manhã</option>
+                            <option value="07:00">07:00 - Padrão</option>
+                            <option value="08:00">08:00 - Após início do expediente</option>
+                            <option value="12:00">12:00 - Meio-dia</option>
+                            <option value="18:00">18:00 - Fim do expediente</option>
+                            <option value="20:00">20:00 - Noite</option>
+                        </select>
+                        <input type="time" name="horario_envio" x-model="contatoEdit.horario_envio"
+                            class="mt-2 w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700"
+                            step="60">
+                        <div class="mt-2">
+                            <button type="button" 
+                                    @click="contatoEdit.horario_envio = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })"
+                                    class="px-3 py-1 text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 transition">
+                                Usar hora atual
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Selecione um preset ou ajuste manualmente</p>
+                    </div>
+                </div>
+                
+                <!-- Obras Vinculadas -->
+                <div>
+                    <label class="block text-sm font-semibold mb-1">🏗️ Obras Vinculadas</label>
+                    <div class="max-h-32 overflow-y-auto border rounded-lg p-2 dark:border-slate-700 space-y-1">
+                        {% for obra in obras_lista %}
+                        <label class="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded px-2 transition">
+                            <input type="checkbox" name="obras" value="{{ obra.id }}" 
+                                   :checked="contatoEdit.obras.includes('{{ obra.id }}')"
+                                   @change="if($event.target.checked) { if(!contatoEdit.obras.includes('{{ obra.id }}')) contatoEdit.obras.push('{{ obra.id }}') } else { contatoEdit.obras = contatoEdit.obras.filter(id => id !== '{{ obra.id }}') }"
+                                   class="w-4 h-4 text-blue-600 rounded">
+                            <span class="text-sm">{{ obra.codigo }} - {{ obra.nome[:40] }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">Se nenhuma obra selecionada, recebe de TODAS</p>
+                </div>
+                
+                <!-- Opções de Recebimento -->
+                <div class="space-y-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="receber_alertas" value="1" 
+                               x-model="contatoEdit.receber_alertas"
+                               class="w-4 h-4 text-blue-600 rounded">
+                        <span class="text-sm font-semibold">Receber relatórios programados</span>
+                    </label>
+                    
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="receber_emergenciais" value="1"
+                               x-model="contatoEdit.receber_emergenciais"
+                               class="w-4 h-4 text-red-600 rounded">
+                        <span class="text-sm font-semibold">Receber alertas emergenciais</span>
+                    </label>
+                </div>
+                
+                <!-- Botões -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <button type="button" @click="openModal = false" 
+                            class="px-4 py-2 border rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition">
+                        <span x-text="editMode ? 'Atualizar' : 'Salvar'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Contatos -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 uppercase text-xs text-slate-500 dark:text-slate-400">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Contato</th>
+                        <th class="px-4 py-3 text-left">Número</th>
+                        <th class="px-4 py-3 text-left">Obras</th>
+                        <th class="px-4 py-3 text-center">Horário</th>
+                        <th class="px-4 py-3 text-center">Programado</th>
+                        <th class="px-4 py-3 text-center">Emergencial</th>
+                        <th class="px-4 py-3 text-center">Status</th>
+                        <th class="px-4 py-3 text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for contato in contatos %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <!-- Contato -->
+                        <td class="px-4 py-3">
+                            <div class="font-bold text-slate-800 dark:text-white">{{ contato.nome }}</div>
+                            <div class="text-xs text-slate-500">{{ contato.funcao or '-' }}</div>
+                        </td>
+                        
+                        <!-- Número -->
+                        <td class="px-4 py-3 font-mono text-xs">{{ contato.numero }}</td>
+                        
+                        <!-- Obras -->
+                        <td class="px-4 py-3">
+                            {% if contato.obras %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for obra in contato.obras %}
+                                <span class="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded text-xs font-bold">{{ obra.codigo }}</span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-emerald-600 font-bold text-xs">🌐 TODAS</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Horário -->
+                        <td class="px-4 py-3 text-center">
+                            <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-bold">
+                                🕐 {{ contato.horario_envio or '07:00' }}
+                            </span>
+                        </td>
+                        
+                        <!-- Programado -->
+                        <td class="px-4 py-3 text-center">
+                            {% if contato.receber_alertas_programados %}
+                            <span class="text-emerald-500">✅</span>
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Emergencial -->
+                        <td class="px-4 py-3 text-center">
+                            {% if contato.receber_emergenciais %}
+                            <span class="text-red-500">✅</span>
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Status Toggle -->
+                        <td class="px-4 py-3 text-center">
+                            <form action="{{ url_for('whatsapp.toggle_contato', id=contato.id) }}" method="POST" class="inline">
+                                <button type="submit" 
+                                        class="px-3 py-1 rounded-full text-xs font-bold transition
+                                               {% if contato.ativo %}
+                                               bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-200
+                                               {% else %}
+                                               bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400 hover:bg-red-200
+                                               {% endif %}">
+                                    {{ 'ATIVO' if contato.ativo else 'INATIVO' }}
+                                </button>
+                            </form>
+                        </td>
+                        
+                        <!-- Ações -->
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex justify-center gap-2">
+                                <!-- Editar -->
+                                <button @click="openModal = true; editMode = true; contatoEdit = {
+                                    id: '{{ contato.id }}',
+                                    nome: {{ contato.nome | tojson | forceescape }},
+                                    funcao: {{ (contato.funcao or '') | tojson | forceescape }},
+                                    numero: {{ contato.numero | tojson | forceescape }},
+                                    horario_envio: {{ (contato.horario_envio or '07:00') | tojson | forceescape }},
+                                    obras: [{% for obra in contato.obras %}'{{ obra.id }}'{% if not loop.last %},{% endif %}{% endfor %}],
+                                    receber_alertas: {{ 'true' if contato.receber_alertas_programados else 'false' }},
+                                    receber_emergenciais: {{ 'true' if contato.receber_emergenciais else 'false' }}
+                                }" class="text-blue-600 hover:text-blue-800 p-1" title="Editar">
+                                    ✏️
+                                </button>
+                                
+                                <!-- Excluir -->
+                                <form action="{{ url_for('whatsapp.excluir_contato', id=contato.id) }}" method="POST" class="inline"
+                                      onsubmit="return confirm('Excluir este contato?')">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 p-1" title="Excluir">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center">
+                            <div class="text-4xl mb-3">📱</div>
+                            <p class="text-slate-500">Nenhum contato cadastrado</p>
+                            <p class="text-xs text-slate-400 mt-1">Clique em "+ Novo Contato" para começar</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Rodapé -->
+        {% if contatos %}
+        <div class="px-6 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+            Total: <strong>{{ contatos|length }}</strong> contato(s) | 
+            Ativos: <strong class="text-emerald-600">{{ contatos|selectattr('ativo', 'equalto', true)|list|length }}</strong>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

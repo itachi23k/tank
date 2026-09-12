@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block title %}Frentes de Serviço & Alocação em Lote - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="{ 
+    activeTab: 'lote',
+    searchEquip: '',
+    editFrenteId: null,
+    editFrenteNome: '',
+    editFrenteDesc: '',
+    editFrenteObra: '',
+    toggleAll(checked) {
+        document.querySelectorAll('.eq-checkbox').forEach(cb => {
+            if (cb.offsetParent !== null) { cb.checked = checked; }
+        });
+    }
+}">
+
+    <!-- CABEÇALHO -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="bg-amber-500/20 text-amber-300 text-xs font-bold px-2.5 py-1 rounded-full border border-amber-500/30">Módulo de Gestão</span>
+                {% if obra_sel %}
+                <span class="bg-blue-500/20 text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-500/30">Obra: {{ obra_sel.nome }}</span>
+                {% endif %}
+            </div>
+            <h1 class="text-2xl font-black text-white tracking-tight mt-2 flex items-center gap-2">
+                <span>🚜</span> Frentes de Serviço & Alocação em Lote
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">
+                Defina as frentes de trabalho da obra e vincule grupos de equipamentos por período de atuação para cálculo de média de consumo.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{{ url_for('relatorios.media_consumo') }}" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg flex items-center gap-2">
+                <span>📊</span> Ver Média de Consumo
+            </a>
+        </div>
+    </div>
+
+    <!-- CARDS DE RESUMO (KPIs) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-md flex items-center gap-4">
+            <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20 text-2xl">
+                🚧
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Frentes Ativas</p>
+                <p class="text-2xl font-black text-white mt-0.5">{{ total_frentes_ativas }}</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-md flex items-center gap-4">
+            <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20 text-2xl">
+                🚜
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Frota Disponível</p>
+                <p class="text-2xl font-black text-white mt-0.5">{{ equipamentos_lista|length }} <span class="text-xs text-slate-400 font-normal">máquinas</span></p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-md flex items-center gap-4">
+            <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 text-2xl">
+                ⚡
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Histórico de Alocações</p>
+                <p class="text-2xl font-black text-white mt-0.5">{{ total_alocacoes }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABA NAVEGAÇÃO -->
+    <div class="bg-slate-800 border border-slate-700 p-2 rounded-xl flex flex-wrap gap-2">
+        <button @click="activeTab = 'lote'" 
+                :class="activeTab === 'lote' ? 'bg-blue-600 text-white font-bold shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+                class="px-5 py-2.5 rounded-lg text-xs uppercase tracking-wider transition flex items-center gap-2">
+            <span>⚡</span> 1. Alocação de Frota em Lote (Por Período)
+        </button>
+        <button @click="activeTab = 'cadastrar'" 
+                :class="activeTab === 'cadastrar' ? 'bg-amber-600 text-white font-bold shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+                class="px-5 py-2.5 rounded-lg text-xs uppercase tracking-wider transition flex items-center gap-2">
+            <span>➕</span> 2. Cadastrar / Editar Frente de Serviço
+        </button>
+        <button @click="activeTab = 'historico'" 
+                :class="activeTab === 'historico' ? 'bg-slate-700 text-white font-bold shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+                class="px-5 py-2.5 rounded-lg text-xs uppercase tracking-wider transition flex items-center gap-2">
+            <span>📋</span> 3. Histórico de Períodos Alocados
+        </button>
+    </div>
+
+    <!-- ABA 1: ALOCAÇÃO EM LOTE -->
+    <div x-show="activeTab === 'lote'" x-transition class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-xl space-y-6">
+        <div class="border-b border-slate-700 pb-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>⚡</span> Definir Atuação da Frota por Frente e Período
+            </h2>
+            <p class="text-slate-400 text-xs mt-1">
+                Selecione a frente de trabalho, especifique a faixa de datas de atuação e marque quais equipamentos pertenceram a essa frente. Os abastecimentos ocorridos no período serão automaticamente vinculados!
+            </p>
+        </div>
+
+        <form method="POST" action="{{ url_for('cadastros.frentes_servico', obra_id=obra_id_sel) }}" class="space-y-6">
+            <input type="hidden" name="acao" value="alocar_lote">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- SELEÇÃO DA FRENTE -->
+                <div>
+                    <label class="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-2">
+                        Frente de Serviço *
+                    </label>
+                    <select name="frente_servico_id" required class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                        <option value="">-- Selecione a Frente de Serviço --</option>
+                        {% for fr in frentes_lista %}
+                        {% if fr.ativa %}
+                        <option value="{{ fr.id }}">🚧 {{ fr.nome }} {% if fr.obra_rel %}({{ fr.obra_rel.nome[:20] }}){% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- DATA INÍCIO -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        Data Início do Período *
+                    </label>
+                    <input type="date" name="data_inicio" required class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <!-- DATA FIM -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        Data Fim do Período *
+                    </label>
+                    <input type="date" name="data_fim" required class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- OBSERVAÇÃO / DETALHES -->
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Observação / Trecho do Contrato (Opcional)
+                </label>
+                <input type="text" name="observacao" placeholder="Ex: Trecho KM 42 ao 58 - Escavação e Aterro" 
+                       class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- OPÇÃO DE AUTO-SINCRONIZAR ABASTECIMENTOS -->
+            <div class="bg-slate-900/80 border border-blue-500/30 p-4 rounded-xl flex items-start gap-3">
+                <input type="checkbox" id="vincular_abastecimentos" name="vincular_abastecimentos" value="true" checked
+                       class="w-5 h-5 mt-0.5 rounded border-slate-700 text-blue-600 focus:ring-blue-500">
+                <label for="vincular_abastecimentos" class="text-xs text-slate-200 leading-relaxed cursor-pointer">
+                    <strong class="text-blue-400 font-bold block">🔄 Atualizar abastecimentos existentes no período</strong>
+                    Ao salvar, atualizar automaticamente o campo <code class="text-amber-300 bg-slate-800 px-1 rounded">frente_servico</code> de todos os abastecimentos já lançados para estas máquinas dentro da faixa de datas informada.
+                </label>
+            </div>
+
+            <!-- SELEÇÃO DE EQUIPAMENTOS EM LOTE -->
+            <div class="space-y-3 pt-2">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 p-3 rounded-xl border border-slate-700">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Selecione os Equipamentos:</span>
+                        <span class="text-xs text-slate-500">({{ equipamentos_lista|length }} disponíveis)</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input type="text" x-model="searchEquip" placeholder="🔍 Filtrar por prefixo/tipo/locador..." 
+                               class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-blue-500 w-full sm:w-64">
+                        
+                        <button type="button" @click="toggleAll(true)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg transition font-medium whitespace-nowrap">
+                            Marcar Todos
+                        </button>
+                        <button type="button" @click="toggleAll(false)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg transition font-medium whitespace-nowrap">
+                            Desmarcar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-96 overflow-y-auto p-1 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                    {% for eq in equipamentos_lista %}
+                    <div x-show="!searchEquip || '{{ eq.prefixo_placa }} {{ eq.tipo_equipamento or '' }} {{ eq.locador or '' }}'.toLowerCase().includes(searchEquip.toLowerCase())"
+                         class="flex items-center gap-3 p-2.5 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 rounded-xl transition cursor-pointer">
+                        <input type="checkbox" name="equipamento_ids[]" value="{{ eq.id }}" id="eq_{{ eq.id }}"
+                               class="eq-checkbox w-4 h-4 rounded border-slate-700 text-amber-500 focus:ring-amber-500">
+                        <label for="eq_{{ eq.id }}" class="flex-1 cursor-pointer min-w-0">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-amber-300 text-sm truncate">{{ eq.prefixo_placa }}</span>
+                                {% if eq.tipo_equipamento %}
+                                <span class="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono truncate max-w-[90px]">{{ eq.tipo_equipamento }}</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-[11px] text-slate-400 truncate mt-0.5">{{ eq.locador or 'CENTRAL' }}</p>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- BOTAO SUBMIT -->
+            <div class="flex justify-end pt-4">
+                <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-black text-sm uppercase tracking-wider rounded-xl transition shadow-xl flex items-center justify-center gap-2">
+                    <span>🚀</span> Confirmar e Aplicar Alocação em Lote
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ABA 2: CADASTRO DE FRENTES DE SERVIÇO -->
+    <div x-show="activeTab === 'cadastrar'" x-transition class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-xl space-y-6">
+        <div class="border-b border-slate-700 pb-4 flex justify-between items-center">
+            <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>🚧</span> Cadastrar Nova Frente de Serviço
+                </h2>
+                <p class="text-slate-400 text-xs mt-1">
+                    Defina o nome da frente (ex: DRENAGEM, PAVIMENTAÇÃO, FRENTE A, TRECHO SUL) para categorizar os abastecimentos da obra.
+                </p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('cadastros.frentes_servico', obra_id=obra_id_sel) }}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="hidden" name="acao" value="cadastrar_frente">
+            <input type="hidden" name="frente_id" :value="editFrenteId">
+
+            <div>
+                <label class="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-2">
+                    Nome da Frente de Serviço *
+                </label>
+                <input type="text" name="nome" x-model="editFrenteNome" required placeholder="Ex: TERRAPLENAGEM - SETOR 01" 
+                       class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 uppercase">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                    Obra Vinculada (Opcional)
+                </label>
+                <select name="obra_id" x-model="editFrenteObra" class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todas as Obras / Global</option>
+                    {% for ob in obras_lista %}
+                    <option value="{{ ob.id }}">{{ ob.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                    Descrição / Observação
+                </label>
+                <input type="text" name="descricao" x-model="editFrenteDesc" placeholder="Ex: Obras de arte especiais e pavimentação" 
+                       class="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="md:col-span-3 flex justify-end gap-3 pt-2">
+                <button type="button" x-show="editFrenteId" @click="editFrenteId = null; editFrenteNome = ''; editFrenteDesc = ''; editFrenteObra = '';" 
+                        class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs uppercase font-bold rounded-xl transition">
+                    Cancelar Edição
+                </button>
+                <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg flex items-center gap-2">
+                    <span>💾</span> <span x-text="editFrenteId ? 'Atualizar Frente' : 'Cadastrar Frente'"></span>
+                </button>
+            </div>
+        </form>
+
+        <!-- LISTA DE FRENTES CADASTRADAS -->
+        <div class="pt-6 border-t border-slate-700">
+            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span>📋</span> Frentes de Serviço Cadastradas ({{ frentes_lista|length }})
+            </h3>
+
+            <div class="overflow-x-auto rounded-xl border border-slate-700 shadow-md">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Frente de Serviço</th>
+                            <th class="p-3">Obra Vinculada</th>
+                            <th class="p-3">Descrição</th>
+                            <th class="p-3 text-center">Status</th>
+                            <th class="p-3 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50 bg-slate-800">
+                        {% for fr in frentes_lista %}
+                        <tr class="hover:bg-slate-700/40 transition">
+                            <td class="p-3 font-bold text-amber-300 text-sm">
+                                🚧 {{ fr.nome }}
+                            </td>
+                            <td class="p-3 text-slate-300">
+                                {% if fr.obra_rel %}
+                                <span class="bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20 font-medium">
+                                    {{ fr.obra_rel.nome }}
+                                </span>
+                                {% else %}
+                                <span class="text-slate-500 italic">Todas as Obras</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-slate-400">
+                                {{ fr.descricao or '-' }}
+                            </td>
+                            <td class="p-3 text-center">
+                                {% if fr.ativa %}
+                                <span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold text-[10px]">Ativa</span>
+                                {% else %}
+                                <span class="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-bold text-[10px]">Inativa</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    <button @click="editFrenteId = {{ fr.id }}; editFrenteNome = '{{ fr.nome }}'; editFrenteDesc = '{{ fr.descricao or '' }}'; editFrenteObra = '{{ fr.obra_id or '' }}';"
+                                            class="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 rounded text-[11px] font-bold transition">
+                                        Editar
+                                    </button>
+                                    <form method="POST" action="{{ url_for('cadastros.toggle_frente_servico', id=fr.id) }}" class="inline">
+                                        <button type="submit" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-[11px] font-medium transition">
+                                            {{ 'Inativar' if fr.ativa else 'Ativar' }}
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('cadastros.desvincular_abastecimentos_frente', id=fr.id) }}" onsubmit="return confirm('Desvincular todos os abastecimentos associados à frente {{ fr.nome }}? Isso irá removê-la da Média de Consumo sem apagar a frente.');" class="inline">
+                                        <button type="submit" title="Desvincular abastecimentos para remover do relatório" class="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 rounded text-[11px] font-bold transition">
+                                            Desvincular Abastecimentos
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('cadastros.excluir_frente_servico', id=fr.id) }}" onsubmit="return confirm('Excluir a frente {{ fr.nome }} e desvincular abastecimentos?');" class="inline">
+                                        <input type="hidden" name="limpar_abastecimentos" value="true">
+                                        <button type="submit" class="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded text-[11px] font-bold transition">
+                                            Excluir & Limpar
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="p-6 text-center text-slate-500 italic">
+                                Nenhuma frente de serviço cadastrada ainda. Use o formulário acima para criar a primeira!
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABA 3: HISTÓRICO DE PERÍODOS ALOCADOS -->
+    <div x-show="activeTab === 'historico'" x-transition class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-xl space-y-4">
+        <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+            <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>📋</span> Histórico de Alocações em Lote
+                </h2>
+                <p class="text-slate-400 text-xs mt-0.5">
+                    Registros de períodos de atuação configurados para cada equipamento.
+                </p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-700 shadow-md">
+            <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+                    <tr>
+                        <th class="p-3">Equipamento</th>
+                        <th class="p-3">Frente de Serviço</th>
+                        <th class="p-3">Período de Atuação</th>
+                        <th class="p-3">Observação</th>
+                        <th class="p-3">Cadastrado em</th>
+                        <th class="p-3 text-right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/50 bg-slate-800">
+                    {% for alc in alocaes_recentes %}
+                    <tr class="hover:bg-slate-700/40 transition">
+                        <td class="p-3 font-bold text-amber-300">
+                            🚜 {{ alc.equipamento_rel.prefixo_placa if alc.equipamento_rel else ('#' ~ alc.equipamento_id) }}
+                            {% if alc.equipamento_rel and alc.equipamento_rel.tipo_equipamento %}
+                            <span class="text-[10px] text-slate-400 block font-normal">{{ alc.equipamento_rel.tipo_equipamento }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3 text-white font-semibold">
+                            🚧 {{ alc.frente_rel.nome if alc.frente_rel else '-' }}
+                        </td>
+                        <td class="p-3 text-slate-200">
+                            <span class="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono text-[11px]">
+                                {{ alc.data_inicio.strftime('%d/%m/%Y') }}
+                            </span>
+                            <span class="text-slate-500 mx-1">até</span>
+                            <span class="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono text-[11px]">
+                                {{ alc.data_fim.strftime('%d/%m/%Y') }}
+                            </span>
+                        </td>
+                        <td class="p-3 text-slate-400">
+                            {{ alc.observacao or '-' }}
+                        </td>
+                        <td class="p-3 text-slate-500 font-mono text-[11px]">
+                            {{ alc.data_cadastro.strftime('%d/%m/%Y %H:%M') }}
+                        </td>
+                        <td class="p-3 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <form method="POST" action="{{ url_for('cadastros.sync_alocacao_frente', id=alc.id) }}" class="inline">
+                                    <button type="submit" title="Sincronizar e re-vincular abastecimentos deste período"
+                                            class="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded text-[11px] font-bold transition flex items-center gap-1">
+                                        <span>🔄</span> Sincronizar
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('cadastros.excluir_alocacao_frente', id=alc.id) }}" onsubmit="return confirm('Excluir esta alocação de período?');" class="inline">
+                                    <button type="submit" class="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded text-[11px] font-bold transition">
+                                        Excluir
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="p-6 text-center text-slate-500 italic">
+                            Nenhuma alocação de período realizada até o momento.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

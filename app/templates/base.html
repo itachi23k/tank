@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestão de Frota - T.A.N.K{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'dark' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch (e) {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                }
+            }
+        })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
+
+    <script src="https://unpkg.com/htmx.org@1.9.10" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js" crossorigin="anonymous"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .dark .flatpickr-calendar { background: #1e293b; border-color: #334155; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+        .dark .flatpickr-day { color: #cbd5e1; }
+        .dark .flatpickr-day:hover,
+        .dark .flatpickr-day.prevMonthDay:hover,
+        .dark .flatpickr-day.nextMonthDay:hover { background: #334155; border-color: #334155; }
+        .dark .flatpickr-day.selected,
+        .dark .flatpickr-day.selected:hover { background: #2563eb; border-color: #2563eb; }
+        .dark .flatpickr-months .flatpickr-month,
+        .dark .flatpickr-weekdays,
+        .dark span.flatpickr-weekday { background: #0f172a; color: #94a3b8; }
+        .dark .flatpickr-current-month input.cur-year,
+        .dark .flatpickr-current-month .flatpickr-monthDropdown-months { color: #f1f5f9; }
+        .dark .flatpickr-day.flatpickr-disabled,
+        .dark .flatpickr-day.prevMonthDay,
+        .dark .flatpickr-day.nextMonthDay { color: #475569; }
+        .mobile-menu-enter { animation: slideDown 0.2s ease-out; }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200"
+      x-data="{ 
+          openMobileMenu: false, 
+          openDatabaseModal: false, 
+          activeDbTab: 'BACKUP',
+          importStatus: ''
+      }">
+
+    {% if current_user.is_authenticated %}
+    <!-- NAVEGAÇÃO PRINCIPAL -->
+    <nav class="bg-slate-900 border-b border-slate-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                
+                <div class="flex items-center space-x-4">
+                    <div class="bg-blue-600 text-white px-3 py-1 rounded font-bold text-lg tracking-wider">T.A.N.K</div>
+                    
+                    {% if current_user.is_global %}
+                    <div class="hidden md:flex items-center gap-2">
+                        <span class="text-slate-500 text-xs">|</span>
+                        <select id="seletorObraNav" 
+                                onchange="if(this.value) { window.location.href='?obra_id='+this.value; } else { window.location.href=window.location.pathname; }"
+                                class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer">
+                            <option value="">Todas as Obras</option>
+                            {% for ob in todas_obras_nav %}
+                            <option value="{{ ob.id }}" {% if request.args.get('obra_id')|int == ob.id %}selected{% endif %}>{{ ob.nome[:30] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif current_user.obra_padrao %}
+                    <div class="hidden md:flex items-center gap-2">
+                        <span class="text-slate-500 text-xs">|</span>
+                        <span class="bg-amber-500/20 text-amber-300 text-xs px-2 py-1 rounded font-bold">
+                            ⛽ {{ current_user.obra_padrao.nome[:30] }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Links Desktop -->
+                <div class="hidden lg:flex items-center space-x-1 font-medium text-xs uppercase tracking-wider">
+                    <a href="{{ url_for('dashboard.index') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition">Home</a>
+                    
+                    {% if current_user.is_lancador %}
+                    <a href="{{ url_for('operacoes.lancamento') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition text-blue-400">Lançar</a>
+                    <a href="{{ url_for('operacoes.transferencia') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition text-emerald-400">Transbordo</a>
+                    {% endif %}
+
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('cadastros.equipamentos') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition">Frota</a>
+                    <a href="{{ url_for('cadastros.frentes_servico') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition text-amber-300 font-bold flex items-center gap-1">
+                        <span>🚜</span> Frentes
+                    </a>
+                    <a href="{{ url_for('cadastros.fornecedores') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition">Fornecedores</a>
+                    <a href="{{ url_for('cadastros.obras') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition text-amber-400 font-bold flex items-center gap-1">
+                        <span>⛽</span> Obras
+                    </a>
+                    <a href="{{ url_for('operacoes.entradas') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition">NFs</a>
+                    <a href="{{ url_for('operacoes.importar_csv') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition text-purple-400">Importar</a>
+                    <a href="{{ url_for('cadastros.usuarios') }}" class="px-3 py-2 rounded hover:bg-slate-800 transition">Usuários</a>
+                    {% endif %}
+                    
+                    <div class="h-6 w-px bg-slate-700 mx-2"></div>
+                    
+                    <!-- MENU DROP-DOWN DE RELATÓRIOS -->
+                    <div x-data="{ openRelatorios: false }" class="relative" @mouseleave="openRelatorios = false">
+                        <button @mouseover="openRelatorios = true" @click="openRelatorios = !openRelatorios" 
+                                class="flex items-center gap-1 px-3 py-2 rounded text-amber-400 hover:text-amber-300 hover:bg-slate-800 transition font-bold">
+                            RELATÓRIOS
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <div x-show="openRelatorios" x-transition.opacity 
+                             class="absolute left-0 mt-0 w-60 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-2 z-50 overflow-hidden" x-cloak>
+                            <a href="{{ url_for('relatorios.resumo_mensal') }}" class="block px-4 py-2 hover:bg-slate-700 text-amber-400 font-bold text-sm bg-slate-700/30">📅 Fechamento Mensal</a>
+                            <a href="{{ url_for('relatorios.media_consumo') }}" class="block px-4 py-2 hover:bg-slate-700 text-purple-400 font-bold text-sm">📊 Média de Consumo</a>
+                            <a href="{{ url_for('relatorios.historico_obra') }}" class="block px-4 py-2 hover:bg-slate-700 text-blue-400 font-bold text-sm">🏗️ Histórico por Obra</a>
+                            <div class="border-t border-slate-700 my-1"></div>
+                            <a href="{{ url_for('relatorios.relatorio_equipamento') }}" class="block px-4 py-2 hover:bg-slate-700 text-slate-200 text-sm">📋 Dossiê por Máquina</a>
+                            <a href="{{ url_for('relatorios.relatorio_fornecedor') }}" class="block px-4 py-2 hover:bg-slate-700 text-slate-200 text-sm">📊 Extrato de Posto</a>
+                            <a href="{{ url_for('relatorios.relatorio_consolidado') }}" class="block px-4 py-2 hover:bg-slate-700 text-slate-200 text-sm">📈 Posto x Frota</a>
+                            <a href="{{ url_for('relatorios.relatorio_estoque') }}" class="block px-4 py-2 hover:bg-slate-700 text-slate-200 text-sm border-t border-slate-700 mt-1 pt-2">🛢️ Balanço Físico</a>
+                            <a href="{{ url_for('relatorios.relatorio_locador') }}" class="block px-4 py-2 hover:bg-slate-700 text-emerald-400 font-bold text-sm border-t border-slate-700 mt-1 pt-2">🚜 Consumo por Locador</a>
+                            <a href="{{ url_for('whatsapp.painel') }}" class="block px-4 py-2 hover:bg-slate-700 text-emerald-400 font-bold text-sm border-t border-slate-700 mt-1 pt-2 flex items-center justify-between">
+                                <span>📱 WhatsApp & Obras</span>
+                                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">Central</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Perfil, Dark Mode e Mobile -->
+                <div class="flex items-center space-x-3">
+                    
+                    <!-- Botão Dark Mode -->
+                    <button @click="darkMode = !darkMode; document.documentElement.classList.toggle('dark'); try { localStorage.setItem('theme', darkMode ? 'dark' : 'light'); } catch(e){}"
+                            class="p-2 rounded hover:bg-slate-800 transition text-amber-400 focus:outline-none"
+                            x-data="{ darkMode: document.documentElement.classList.contains('dark') }"
+                            title="Alternar Tema">
+                        <svg x-show="!darkMode" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <svg x-show="darkMode" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                    </button>
+                    
+                    {% if current_user.is_admin %}
+                    <button @click="openDatabaseModal = true"
+                            class="p-2 rounded hover:bg-slate-800 transition text-blue-400 focus:outline-none"
+                            title="Gerenciar Banco de Dados">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7M4 7c0-2 1.5-3 3.5-3h9C18.5 4 20 5 20 7M4 7c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3"></path>
+                        </svg>
+                    </button>
+                    {% endif %}
+
+                    <div class="hidden sm:block text-right">
+                        <div class="text-xs font-semibold text-slate-200">{{ current_user.nome }}</div>
+                        <div class="text-[10px] text-slate-500 uppercase flex items-center gap-1">
+                            {{ current_user.nivel_acesso }}
+                            {% if current_user.acesso_global %}
+                            <span class="text-emerald-400" title="Acesso Global">🌐</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <a href="{{ url_for('auth.logout') }}" 
+                       class="bg-red-900/50 hover:bg-red-800 text-red-200 px-3 py-1 rounded text-xs font-bold transition border border-red-800/50">
+                        SAIR
+                    </a>
+                    
+                    <button @click="openMobileMenu = !openMobileMenu" class="lg:hidden p-2 rounded hover:bg-slate-800">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MENU MOBILE -->
+        <div x-show="openMobileMenu" @click.away="openMobileMenu = false" 
+             class="lg:hidden bg-slate-800 border-t border-slate-700 p-4 space-y-2 overflow-y-auto max-h-screen mobile-menu-enter" x-cloak>
+            {% if current_user.obra_padrao %}
+            <div class="px-3 py-2 bg-slate-700/50 rounded text-xs">
+                <span class="text-slate-400">Obra:</span>
+                <span class="text-amber-400 font-bold">{{ current_user.obra_padrao.nome }}</span>
+            </div>
+            {% endif %}
+            
+            <a href="{{ url_for('dashboard.index') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase">🏠 Dashboard</a>
+            
+            {% if current_user.is_lancador %}
+            <a href="{{ url_for('operacoes.lancamento') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold text-blue-400 uppercase">⛽ Novo Lançamento</a>
+            <a href="{{ url_for('operacoes.transferencia') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold text-emerald-400 uppercase">🔄 Transbordo (Bases)</a>
+            {% endif %}
+
+            {% if current_user.is_admin %}
+            <div class="border-t border-slate-700 my-2 pt-2">
+                <p class="px-3 text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Administração</p>
+                <a href="{{ url_for('cadastros.equipamentos') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase">🚜 Frota</a>
+                <a href="{{ url_for('cadastros.frentes_servico') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase text-amber-300">🚧 Frentes de Serviço</a>
+                <a href="{{ url_for('cadastros.fornecedores') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase">🏪 Fornecedores</a>
+                <a href="{{ url_for('cadastros.obras') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase text-amber-400">⛽ Obras</a>
+                <a href="{{ url_for('operacoes.entradas') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase">📄 NFs</a>
+                <a href="{{ url_for('operacoes.importar_csv') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase text-purple-400">📥 Importar Excel</a>
+                <a href="{{ url_for('cadastros.usuarios') }}" @click="openMobileMenu = false" class="block px-3 py-2 rounded hover:bg-slate-700 text-sm font-bold uppercase">👥 Usuários</a>
+            </div>
+            {% endif %}
+            
+            <div class="border-t border-slate-700 my-2 pt-2">
+                <p class="px-3 text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Central de Relatórios</p>
+                <a href="{{ url_for('relatorios.resumo_mensal') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-amber-400 text-sm font-bold bg-slate-700/40 rounded">📅 Fechamento Mensal</a>
+                <a href="{{ url_for('relatorios.media_consumo') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-purple-400 text-sm font-bold mt-1">📊 Média de Consumo</a>
+                <a href="{{ url_for('relatorios.historico_obra') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-blue-400 text-sm font-bold mt-1">🏗️ Histórico por Obra</a>
+                <a href="{{ url_for('relatorios.relatorio_equipamento') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-slate-300 text-sm font-medium mt-1">📋 Dossiê por Máquina</a>
+                <a href="{{ url_for('relatorios.relatorio_fornecedor') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-slate-300 text-sm font-medium">📊 Extrato de Posto</a>
+                <a href="{{ url_for('relatorios.relatorio_consolidado') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-slate-300 text-sm font-medium">📈 Posto x Frota</a>
+                <a href="{{ url_for('relatorios.relatorio_estoque') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-slate-300 text-sm font-medium mt-1">🛢️ Balanço Físico (Estoque)</a>
+                <a href="{{ url_for('relatorios.relatorio_locador') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-emerald-400 text-sm font-bold mt-1">🚜 Consumo por Locador</a>
+                <a href="{{ url_for('whatsapp.painel') }}" @click="openMobileMenu = false" class="block px-3 py-2 text-emerald-400 font-bold text-sm mt-1 flex items-center justify-between">
+                    <span>📱 WhatsApp & Obras</span>
+                    <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">Central</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Flash Messages -->
+    <div class="max-w-7xl mx-auto w-full px-4 mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div x-data="{ show: true }" x-show="show" x-transition
+                         class="p-4 mb-3 rounded-lg border text-sm flex justify-between items-start shadow-md
+                                {{ 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' if category == 'danger' else '' }}
+                                {{ 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800' if category == 'success' else '' }}
+                                {{ 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800' if category == 'warning' else '' }}
+                                {{ 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800' if category == 'info' else '' }}">
+                        <span>{{ message }}</span>
+                        <button @click="show = false" class="font-bold ml-4 text-lg leading-none opacity-50 hover:opacity-100 transition">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="text-center py-4 text-[10px] text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800 mt-auto uppercase tracking-widest">
+        Idealizado e Construído por Cassio Junio &copy; 2026
+    </footer>
+
+    <!-- ========================================== -->
+    <!-- MODAL DE GERENCIAMENTO DE BANCO DE DADOS   -->
+    <!-- ========================================== -->
+    <div x-show="openDatabaseModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-cloak>
+        <div class="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-2xl overflow-hidden text-slate-100 flex flex-col max-h-[90vh]" @click.away="openDatabaseModal = false">
+            
+            <!-- Header -->
+            <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                        🗄️
+                    </div>
+                    <div>
+                        <h3 class="font-black uppercase tracking-wider text-sm text-white">Gestão de Banco de Dados</h3>
+                        <p class="text-xs text-slate-400">Backup, Importação e Status</p>
+                    </div>
+                </div>
+                <button @click="openDatabaseModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">&times;</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-800 bg-slate-900/90 px-6 pt-3 gap-2 shrink-0">
+                <button @click="activeDbTab = 'BACKUP'" 
+                        :class="activeDbTab === 'BACKUP' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                        class="pb-2.5 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition cursor-pointer">
+                    📥 Backup
+                </button>
+                <button @click="activeDbTab = 'IMPORT'" 
+                        :class="activeDbTab === 'IMPORT' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                        class="pb-2.5 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition cursor-pointer">
+                    📤 Importar
+                </button>
+                <button @click="activeDbTab = 'CSV'" 
+                        :class="activeDbTab === 'CSV' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                        class="pb-2.5 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition cursor-pointer">
+                    📊 CSV
+                </button>
+                <button @click="activeDbTab = 'STATUS'" 
+                        :class="activeDbTab === 'STATUS' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                        class="pb-2.5 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition cursor-pointer">
+                    ℹ️ Status
+                </button>
+            </div>
+
+            <!-- Conteúdo das abas -->
+            <div class="p-6 overflow-y-auto space-y-5 flex-1">
+                
+                <!-- ABA BACKUP -->
+                <div x-show="activeDbTab === 'BACKUP'" class="space-y-4">
+                    <p class="text-xs text-slate-400">Baixe um arquivo JSON com todos os dados do sistema (obras, tanques, comboios, movimentações).</p>
+                    <a href="{{ url_for('admin.backup_json') }}" 
+                       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white shadow-lg transition cursor-pointer">
+                        ⬇️ Baixar Backup Completo (.json)
+                    </a>
+                </div>
+
+                <!-- ABA IMPORTAR -->
+                <div x-show="activeDbTab === 'IMPORT'" class="space-y-4">
+                    <p class="text-xs text-slate-400">Selecione um arquivo .json previamente exportado para restaurar os dados.</p>
+                    <form method="POST" enctype="multipart/form-data" action="{{ url_for('admin.restore_backup') }}">
+                        <input type="file" name="backup_file" accept=".json" required
+                               class="block w-full text-xs text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 file:transition file:cursor-pointer border border-slate-600 rounded-lg cursor-pointer bg-slate-800 focus:outline-none">
+                        <div class="mt-3 flex gap-2">
+                            <button type="submit" name="mode" value="merge" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-white transition">Mesclar</button>
+                            <button type="submit" name="mode" value="overwrite" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition">Substituir Tudo</button>
+                        </div>
+                    </form>
+                    <div x-text="importStatus" class="text-xs text-slate-300"></div>
+                </div>
+
+                <!-- ABA CSV -->
+                <div x-show="activeDbTab === 'CSV'" class="space-y-4">
+                    <p class="text-xs text-slate-400">Exportar dados em planilhas CSV para Excel ou Google Sheets.</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <a href="{{ url_for('admin.export_obras_csv') }}" class="p-3 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-white hover:bg-slate-700 transition text-center">
+                            📋 Obras & Saldos
+                        </a>
+                        <a href="{{ url_for('admin.export_movimentacoes_csv') }}" class="p-3 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-white hover:bg-slate-700 transition text-center">
+                            📜 Histórico de Movimentações
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ABA STATUS -->
+                <div x-show="activeDbTab === 'STATUS'" class="space-y-4">
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-xs space-y-1">
+                        <p>📦 Tamanho do banco: <strong class="text-white">{{ db_size if db_size else 'N/D' }} KB</strong></p>
+                        <p>🏗️ Obras: <strong class="text-white">{{ total_obras if total_obras else 0 }}</strong></p>
+                        <p>🚜 Equipamentos: <strong class="text-white">{{ total_equipamentos if total_equipamentos else 0 }}</strong></p>
+                        <p>⛽ Abastecimentos: <strong class="text-white">{{ total_abastecimentos if total_abastecimentos else 0 }}</strong></p>
+                    </div>
+                    <form method="POST" action="{{ url_for('admin.reset_database') }}" onsubmit="return confirm('Tem certeza que deseja restaurar os dados de fábrica? Esta ação não pode ser desfeita.')">
+                        <button type="submit" class="px-4 py-2 rounded-xl text-xs font-extrabold bg-rose-600 hover:bg-rose-500 text-white shadow-md transition">
+                            🔄 Restaurar Dados Iniciais de Fábrica
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-slate-950 px-6 py-3 border-t border-slate-800 flex justify-between items-center text-xs shrink-0">
+                <span class="text-[11px] text-slate-400">T.A.N.K Database Core v2.0</span>
+                <button @click="openDatabaseModal = false" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-800 transition cursor-pointer">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            function addDays(value, days) {
+                var date = new Date(value + 'T12:00:00');
+                date.setDate(date.getDate() + days);
+                return date.toISOString().slice(0, 10);
+            }
+
+            function setupPeriod(start, end) {
+                if (!start || !end) return;
+                function updateMinDate() {
+                    if (!start.value) {
+                        end.removeAttribute('min');
+                        if (end._flatpickr) end._flatpickr.set('minDate', null);
+                        return;
+                    }
+                    end.min = start.value;
+                    if (end._flatpickr) {
+                        end._flatpickr.set('minDate', start.value);
+                    }
+                }
+
+                function onStartChanged() {
+                    if (!start.value) {
+                        updateMinDate();
+                        return;
+                    }
+                    updateMinDate();
+                    var defaultEnd = addDays(start.value, 1);
+                    if (end._flatpickr) {
+                        end._flatpickr.setDate(defaultEnd, true);
+                    } else {
+                        end.value = defaultEnd;
+                    }
+                }
+
+                if (start.value) {
+                    updateMinDate();
+                    if (!end.value || end.value < start.value) {
+                        var defaultEnd = addDays(start.value, 1);
+                        if (end._flatpickr) {
+                            end._flatpickr.setDate(defaultEnd, true);
+                        } else {
+                            end.value = defaultEnd;
+                        }
+                    }
+                }
+
+                start.addEventListener('change', onStartChanged);
+                if (start._flatpickr && Array.isArray(start._flatpickr.config.onChange)) {
+                    start._flatpickr.config.onChange.push(function () {
+                        onStartChanged();
+                    });
+                }
+            }
+
+            if (typeof flatpickr !== 'undefined') {
+                document.querySelectorAll('input[type="date"]').forEach(function (input) {
+                    flatpickr(input, {
+                        locale: (typeof flatpickr.l10ns !== 'undefined' && flatpickr.l10ns.pt) ? flatpickr.l10ns.pt : 'pt',
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'd/m/Y',
+                        allowInput: true,
+                        disableMobile: true
+                    });
+                });
+
+                document.querySelectorAll('input[type="datetime-local"]').forEach(function (input) {
+                    flatpickr(input, {
+                        locale: (typeof flatpickr.l10ns !== 'undefined' && flatpickr.l10ns.pt) ? flatpickr.l10ns.pt : 'pt',
+                        enableTime: true,
+                        time_24hr: true,
+                        dateFormat: 'Y-m-d\\TH:i',
+                        altInput: true,
+                        altFormat: 'd/m/Y H:i',
+                        allowInput: true,
+                        disableMobile: true
+                    });
+                });
+            }
+
+            document.querySelectorAll('form').forEach(function (form) {
+                var start = form.querySelector('input[name="data_inicio"]');
+                var end = form.querySelector('input[name="data_fim"]');
+                if (start && end) setupPeriod(start, end);
+            });
+        } catch (err) {
+            console.warn('Init period/flatpickr notice:', err);
+        }
+    });
+    </script>
+
+</body>
+</html>

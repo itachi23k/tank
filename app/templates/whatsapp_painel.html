@@ -1,0 +1,1181 @@
+{% extends "base.html" %}
+{% block title %}Central WhatsApp & Relatórios de Obra - T.A.N.K{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+
+<!-- ================================================================= -->
+<!-- MACRO: CARD DA OBRA (MODELO UNIFICADO PARA OS 3 MODOS)           -->
+<!-- ================================================================= -->
+{% macro render_card_obra(item, element_id, data_formatada) %}
+<div id="{{ element_id }}" 
+     class="p-4 bg-slate-900 text-white space-y-3.5" 
+     style="font-family: Arial, Helvetica, sans-serif; line-height: 1.5; letter-spacing: normal; width: 100%; box-sizing: border-box;">
+    
+    <!-- Cabeçalho da Obra -->
+    <div class="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 p-3.5 rounded-xl border border-blue-500/30 flex justify-between items-start">
+        <div class="min-w-0 flex-1 pr-2">
+            <span class="text-[9px] font-bold uppercase text-blue-400 block mb-0.5" style="line-height: 1.4;">T.A.N.K • RELATÓRIO DIÁRIO</span>
+            <h3 class="text-sm font-bold text-white uppercase truncate" style="line-height: 1.4;">{{ item.obra.nome }}</h3>
+            {% if item.obra.local %}
+            <p class="text-[11px] text-blue-200 mt-1 flex items-center gap-1 truncate" style="line-height: 1.4;">
+                <span>📍</span> <span class="truncate">{{ item.obra.local }}</span>
+            </p>
+            {% endif %}
+        </div>
+        <div class="text-right shrink-0">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[10px] font-bold border border-blue-500/30 inline-block" style="line-height: 1.4;">{{ item.obra.codigo }}</span>
+            <p class="text-[10px] text-slate-400 mt-1 font-semibold" style="line-height: 1.4;">📅 {{ data_formatada }}</p>
+        </div>
+    </div>
+
+    <!-- 1. Canteiro (Estoque Fixo) -->
+    <div class="bg-slate-950/90 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+            <h4 class="text-xs font-bold text-blue-400 uppercase flex items-center gap-1.5" style="line-height: 1.4;">
+                <span>🛢️</span> CANTEIRO (ESTOQUE FIXO)
+            </h4>
+            <span class="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded font-bold" style="line-height: 1.4;">{{ item.total_tanques_fixos }} tanque(s)</span>
+        </div>
+
+        {% if item.tanques_fixos %}
+        <div class="space-y-2">
+            {% for t in item.tanques_fixos %}
+            <div class="bg-slate-900 py-2.5 px-3 rounded-lg border border-slate-800">
+                <div class="flex justify-between items-center text-xs mb-1.5 gap-2" style="line-height: 1.4;">
+                    <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span class="text-xs shrink-0">
+                            {% if 'S10' in t.tipo %}🟢{% elif 'S500' in t.tipo %}🔴{% elif 'GASOLINA' in t.tipo %}🟡{% elif 'ARLA' in t.tipo %}💧{% else %}⚡{% endif %}
+                        </span>
+                        <span class="font-bold text-slate-100 truncate text-[11px]" style="line-height: 1.4;">{{ t.nome }}</span>
+                        <span class="text-[10px] text-slate-400 font-medium shrink-0" style="line-height: 1.4;">({{ t.tipo }})</span>
+                    </div>
+                    <div class="text-right shrink-0 whitespace-nowrap font-mono" style="line-height: 1.4;">
+                        <span class="font-bold text-xs {% if t.percentual > 80 %}text-emerald-400{% elif t.percentual > 25 %}text-blue-400{% else %}text-red-400{% endif %}">
+                            {{ "%.0f"|format(t.saldo) }}L
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-normal">({{ "%.0f"|format(t.percentual) }}%)</span>
+                    </div>
+                </div>
+                <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div class="h-2 rounded-full transition-all duration-500 {% if t.percentual > 80 %}bg-emerald-500{% elif t.percentual > 25 %}bg-blue-500{% else %}bg-red-500{% endif %}"
+                         style="width: {{ t.percentual }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-500 italic" style="line-height: 1.4;">Sem tanques fixos em canteiro</p>
+        {% endif %}
+    </div>
+
+    <!-- 2. Comboios (Estoque Móvel) -->
+    <div class="bg-slate-950/90 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+            <h4 class="text-xs font-bold text-amber-400 uppercase flex items-center gap-1.5" style="line-height: 1.4;">
+                <span>🚜</span> COMBOIOS (ESTOQUE MÓVEL)
+            </h4>
+            <span class="text-[9px] bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded font-bold" style="line-height: 1.4;">{{ item.total_comboios }} comboio(s)</span>
+        </div>
+
+        {% if item.comboios %}
+        <div class="space-y-2">
+            {% for c in item.comboios %}
+            <div class="bg-slate-900 py-2.5 px-3 rounded-lg border border-slate-800">
+                <div class="flex justify-between items-center text-xs mb-1.5 gap-2" style="line-height: 1.4;">
+                    <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span class="text-xs shrink-0">🚚</span>
+                        <span class="font-bold text-slate-100 truncate text-[11px]" style="line-height: 1.4;">{{ c.nome }}</span>
+                        <span class="text-[10px] text-amber-300/80 font-medium shrink-0" style="line-height: 1.4;">({{ c.tipo }})</span>
+                    </div>
+                    <div class="text-right shrink-0 whitespace-nowrap font-mono" style="line-height: 1.4;">
+                        <span class="font-bold text-xs {% if c.percentual > 80 %}text-emerald-400{% elif c.percentual > 25 %}text-amber-400{% else %}text-red-400{% endif %}">
+                            {{ "%.0f"|format(c.saldo) }}L
+                        </span>
+                        {% if c.capacidade %}<span class="text-[10px] text-slate-400 font-normal">({{ "%.0f"|format(c.percentual) }}%)</span>{% endif %}
+                    </div>
+                </div>
+                {% if c.capacidade %}
+                <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div class="h-2 rounded-full transition-all duration-500 {% if c.percentual > 80 %}bg-emerald-500{% elif c.percentual > 25 %}bg-amber-500{% else %}bg-red-500{% endif %}"
+                         style="width: {{ c.percentual }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-500 italic" style="line-height: 1.4;">Nenhum comboio em operação</p>
+        {% endif %}
+    </div>
+
+    <!-- 3. Resumo Consolidado por Combustível -->
+    {% if item.resumo_tipos %}
+    <div class="bg-slate-950/90 p-3.5 rounded-xl border border-slate-800">
+        <h4 class="text-xs font-bold text-slate-300 uppercase mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5" style="line-height: 1.4;">
+            <span>📊</span> RESUMO POR COMBUSTÍVEL
+        </h4>
+        <div class="grid grid-cols-2 gap-2">
+            {% for rt in item.resumo_tipos %}
+            <div class="bg-slate-900 py-2 px-2.5 rounded-lg border border-slate-800 flex items-center justify-between gap-1.5 text-xs" style="line-height: 1.4;">
+                <span class="text-slate-300 font-bold truncate text-[11px] min-w-0" style="line-height: 1.4;">{{ rt.nome }}</span>
+                <span class="font-mono font-bold text-amber-400 shrink-0 whitespace-nowrap text-[11px]" style="line-height: 1.4;">{{ "%.0f"|format(rt.disponivel) }}L</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Rodapé -->
+    <div class="pt-0.5 text-center text-[9px] text-slate-500 font-mono" style="line-height: 1.4;">
+        T.A.N.K - Gestão Inteligente de Combustíveis © 2026<br>
+        Idealizado por Cassio Junio
+    </div>
+</div>
+{% endmacro %}
+
+<!-- ================================================================= -->
+<!-- COMPONENTE PRINCIPAL (SCRIPT & ESTADO)                           -->
+<!-- ================================================================= -->
+<script>
+window.centralWhatsappConfig = {
+    abaInicial: {{ (aba_ativa or 'meta') | tojson }},
+    dataInicial: {{ data_atual | tojson }},
+    obraInicial: {{ (obras_dados[0].obra.id if obras_dados else '') | tojson }},
+    contatoInicial: {{ (contatos[0].id if contatos else '') | tojson }},
+    contatos: {{ contatos_data | tojson | safe }},
+    obrasResumo: {{ obras_resumo | tojson | safe }}
+};
+
+window.centralWhatsapp = function(config) {
+    config = config || window.centralWhatsappConfig || {};
+    return {
+        abaAtiva: config.abaInicial || 'meta',
+        dataAtual: config.dataInicial || '',
+        modoEnvioMeta: 'template',
+        obraSelecionadaId: config.obraInicial || '',
+        contatoSelecionadoId: config.contatoInicial || '',
+        contatos: config.contatos || [],
+        obrasResumo: config.obrasResumo || [],
+        contatosSelecionados: [],
+        buscaContato: '',
+        filtroTipo: 'todos',
+        numeroAvulso: '',
+        nomeAvulso: '',
+        mostrarCampoAvulso: false,
+        contatosEnviados: {},
+        modalFilaAberto: false,
+        filaContatos: [],
+        indiceFila: 0,
+        statusFila: {},
+        toast: { visivel: false, titulo: '', mensagem: '', timeout: null },
+        copiado: false,
+        gerandoImagem: false,
+        modalTextoAberto: false,
+        textoModal: '',
+        filtroObraManual: 'todas',
+
+        init() {
+            this.$watch('obraSelecionadaId', (novaObraId) => {
+                // Atualização reativa de contatos vinculados
+            });
+        },
+
+        obterObraAtual() {
+            return this.obrasResumo.find(o => String(o.id) === String(this.obraSelecionadaId)) || (this.obrasResumo[0] || {});
+        },
+
+        obterMensagemObraAtual() {
+            return this.obterObraAtual().mensagem_texto || '';
+        },
+
+        get contatosDestaObra() {
+            const idAtual = Number(this.obraSelecionadaId);
+            return this.contatos.filter(c => c.obras_ids && c.obras_ids.includes(idAtual));
+        },
+
+        get contatosFiltrados() {
+            let lista = this.contatos;
+            if (this.filtroTipo === 'obra') {
+                const idAtual = Number(this.obraSelecionadaId);
+                lista = lista.filter(c => c.obras_ids && c.obras_ids.includes(idAtual));
+            } else if (this.filtroTipo === 'ativos') {
+                lista = lista.filter(c => c.ativo);
+            }
+
+            if (this.buscaContato && this.buscaContato.trim()) {
+                const q = this.buscaContato.trim().toLowerCase();
+                lista = lista.filter(c => {
+                    const nome = (c.nome || '').toLowerCase();
+                    const funcao = (c.funcao || '').toLowerCase();
+                    const num = (c.numero || '').toLowerCase();
+                    const obras = (c.obras_codigos || []).join(' ').toLowerCase();
+                    return nome.includes(q) || funcao.includes(q) || num.includes(q) || obras.includes(q);
+                });
+            }
+            return lista;
+        },
+
+        isContatoSelecionado(id) {
+            return this.contatosSelecionados.includes(id);
+        },
+
+        toggleContato(id) {
+            if (this.isContatoSelecionado(id)) {
+                this.contatosSelecionados = this.contatosSelecionados.filter(item => item !== id);
+            } else {
+                this.contatosSelecionados.push(id);
+            }
+        },
+
+        marcarTodosFiltrados() {
+            const idsFiltrados = this.contatosFiltrados.map(c => c.id);
+            const conjunto = new Set([...this.contatosSelecionados, ...idsFiltrados]);
+            this.contatosSelecionados = Array.from(conjunto);
+        },
+
+        desmarcarTodosContatos() {
+            this.contatosSelecionados = [];
+        },
+
+        marcarContatosDestaObra() {
+            const idsDestaObra = this.contatosDestaObra.map(c => c.id);
+            if (idsDestaObra.length === 0) {
+                this.mostrarNotificacao('Aviso', 'Nenhum contato cadastrado possui vínculo específico com esta obra.');
+                return;
+            }
+            const conjunto = new Set([...this.contatosSelecionados, ...idsDestaObra]);
+            this.contatosSelecionados = Array.from(conjunto);
+        },
+
+        obterIniciais(nome) {
+            if (!nome) return '??';
+            const partes = nome.trim().split(/\s+/);
+            if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+            return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+        },
+
+        formatarTelefone(numero) {
+            if (!numero) return '';
+            const limpo = String(numero).replace(/\D/g, '');
+            if (limpo.length === 13) {
+                return `+${limpo.slice(0, 2)} (${limpo.slice(2, 4)}) ${limpo.slice(4, 9)}-${limpo.slice(9)}`;
+            }
+            if (limpo.length === 11) {
+                return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
+            }
+            return numero;
+        },
+
+        mostrarNotificacao(titulo, mensagem) {
+            if (this.toast.timeout) clearTimeout(this.toast.timeout);
+            this.toast.titulo = titulo;
+            this.toast.mensagem = mensagem;
+            this.toast.visivel = true;
+            this.toast.timeout = setTimeout(() => {
+                this.toast.visivel = false;
+            }, 5500);
+        },
+
+        mudarAba(aba) {
+            this.abaAtiva = aba;
+            const url = new URL(window.location);
+            url.searchParams.set('aba', aba);
+            window.history.replaceState({}, '', url);
+        },
+
+        definirDataHoje() {
+            const hoje = new Date();
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const ano = hoje.getFullYear();
+            const dataStr = `${dia}/${mes}/${ano}`;
+            
+            const input = document.getElementById('filtro-data-whatsapp');
+            if (input) {
+                input.value = dataStr;
+                document.getElementById('form-filtro-data').submit();
+            }
+        },
+
+        definirDataOntem() {
+            const ontem = new Date();
+            ontem.setDate(ontem.getDate() - 1);
+            const dia = String(ontem.getDate()).padStart(2, '0');
+            const mes = String(ontem.getMonth() + 1).padStart(2, '0');
+            const ano = ontem.getFullYear();
+            const dataStr = `${dia}/${mes}/${ano}`;
+            
+            const input = document.getElementById('filtro-data-whatsapp');
+            if (input) {
+                input.value = dataStr;
+                document.getElementById('form-filtro-data').submit();
+            }
+        },
+
+        copiarTexto(texto) {
+            navigator.clipboard.writeText(texto);
+            this.copiado = true;
+            this.mostrarNotificacao('Texto Copiado!', 'Texto formatado do relatório copiado com sucesso.');
+            setTimeout(() => this.copiado = false, 2500);
+        },
+
+        abrirModalTexto(texto) {
+            this.textoModal = texto;
+            this.modalTextoAberto = true;
+        },
+
+        async copiarImagemCardParaClipboard(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return false;
+            try {
+                const blob = await htmlToImage.toBlob(el, { quality: 1.0, pixelRatio: 2, fontEmbedCSS: '', cacheBust: false });
+                if (navigator.clipboard && window.ClipboardItem) {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    return true;
+                }
+            } catch (err) {
+                console.warn('Erro ao copiar imagem para clipboard:', err);
+            }
+            return false;
+        },
+
+        async copiarImagemCardManual() {
+            const elementId = 'card-web-obra-' + this.obraSelecionadaId;
+            const sucesso = await this.copiarImagemCardParaClipboard(elementId);
+            if (sucesso) {
+                this.mostrarNotificacao('📸 Imagem Copiada!', 'Card copiado para a área de transferência. Cole no WhatsApp com Ctrl + V.');
+            } else {
+                this.baixarImagemCardAtual();
+            }
+        },
+
+        baixarImagemCardAtual() {
+            const obra = this.obterObraAtual();
+            const cod = obra.codigo || 'obra';
+            const nomeArq = `relatorio_${cod}_${this.dataAtual.replace(/\//g, '_')}`;
+            this.baixarImagemCard('card-web-obra-' + this.obraSelecionadaId, nomeArq);
+        },
+
+        registrarLogWeb(contatoId, obraId, mensagem) {
+            try {
+                fetch('/whatsapp/log-envio-web', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contato_id: contatoId,
+                        obra_id: obraId,
+                        mensagem: mensagem
+                    })
+                }).catch(e => console.warn('Erro ao registrar log web:', e));
+            } catch (err) {
+                console.warn(err);
+            }
+        },
+
+        async abrirContatoWhatsAppWeb(contato, copiarImagem = true) {
+            if (copiarImagem) {
+                await this.copiarImagemCardParaClipboard('card-web-obra-' + this.obraSelecionadaId);
+            }
+
+            const texto = this.obterMensagemObraAtual();
+            const numLimpo = (contato.numero || '').replace(/\D/g, '');
+            if (!numLimpo) {
+                alert('Número inválido para ' + contato.nome);
+                return;
+            }
+
+            this.contatosEnviados[contato.id] = true;
+            this.registrarLogWeb(contato.id, this.obraSelecionadaId, texto);
+
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const baseUrl = isMobile ? 'https://api.whatsapp.com/send' : 'https://web.whatsapp.com/send';
+            const url = `${baseUrl}?phone=${numLimpo}&text=${encodeURIComponent(texto)}`;
+
+            window.open(url, '_blank');
+
+            this.mostrarNotificacao(
+                '📸 Card no Ctrl+V!',
+                `Abrindo chat de ${contato.nome}. No WhatsApp Web, pressione Ctrl + V para colar a imagem.`
+            );
+        },
+
+        async iniciarFilaEnvio() {
+            const selecionados = this.contatos.filter(c => this.contatosSelecionados.includes(c.id));
+            if (selecionados.length === 0) {
+                alert('Selecione pelo menos um contato na lista para iniciar o envio.');
+                return;
+            }
+
+            this.filaContatos = selecionados;
+            this.indiceFila = 0;
+            this.statusFila = {};
+            this.filaContatos.forEach(c => {
+                this.statusFila[c.id] = this.contatosEnviados[c.id] ? 'enviado' : 'pendente';
+            });
+
+            // Renderiza e copia a imagem do card para o clipboard
+            await this.copiarImagemCardParaClipboard('card-web-obra-' + this.obraSelecionadaId);
+
+            this.modalFilaAberto = true;
+            this.mostrarNotificacao(
+                '🚀 Fila de Disparo Pronta!',
+                'A imagem do card já está na sua área de transferência (Ctrl+V).'
+            );
+        },
+
+        async enviarContatoFila(indice) {
+            if (!this.filaContatos[indice]) return;
+            const contato = this.filaContatos[indice];
+            await this.abrirContatoWhatsAppWeb(contato, false);
+            this.statusFila[contato.id] = 'enviado';
+
+            // Avança suavemente para o próximo pendente se houver
+            if (indice < this.filaContatos.length - 1) {
+                setTimeout(() => {
+                    this.indiceFila = indice + 1;
+                }, 700);
+            }
+        },
+
+        contagemEnviadosFila() {
+            return Object.values(this.statusFila).filter(st => st === 'enviado').length;
+        },
+
+        async abrirTodosEmAbas() {
+            if (!confirm(`Deseja abrir as conversas dos ${this.filaContatos.length} contatos em novas abas? Verifique se o navegador não bloqueia pop-ups.`)) {
+                return;
+            }
+
+            await this.copiarImagemCardParaClipboard('card-web-obra-' + this.obraSelecionadaId);
+
+            this.filaContatos.forEach((contato, idx) => {
+                setTimeout(() => {
+                    this.abrirContatoWhatsAppWeb(contato, false);
+                    this.statusFila[contato.id] = 'enviado';
+                }, idx * 600);
+            });
+        },
+
+        async enviarParaNumeroAvulso() {
+            const numLimpo = (this.numeroAvulso || '').replace(/\D/g, '');
+            if (!numLimpo) {
+                alert('Informe um número válido com DDI e DDD.');
+                return;
+            }
+            const contatoFicticio = {
+                id: 'avulso_' + Date.now(),
+                nome: this.nomeAvulso || 'Destinatário Avulso',
+                numero: numLimpo
+            };
+            await this.abrirContatoWhatsAppWeb(contatoFicticio, true);
+        },
+
+        baixarImagemCard(elementId, nomeArquivo) {
+            const elemento = document.getElementById(elementId);
+            if (!elemento) return alert('Elemento não encontrado.');
+
+            this.gerandoImagem = true;
+
+            htmlToImage.toPng(elemento, { quality: 1.0, pixelRatio: 2, fontEmbedCSS: '', cacheBust: false })
+                .then((dataUrl) => {
+                    const link = document.createElement('a');
+                    link.download = (nomeArquivo || 'relatorio_combustivel') + '.png';
+                    link.href = dataUrl;
+                    link.click();
+                    this.gerandoImagem = false;
+                })
+                .catch((err) => {
+                    console.error('Erro ao gerar imagem:', err);
+                    alert('Erro ao gerar imagem.');
+                    this.gerandoImagem = false;
+                });
+        },
+
+        compartilharImagemCard(elementId, nomeArquivo, textoLegenda) {
+            const elemento = document.getElementById(elementId);
+            if (!elemento) return alert('Elemento não encontrado.');
+
+            this.gerandoImagem = true;
+
+            htmlToImage.toBlob(elemento, { quality: 1.0, pixelRatio: 2, fontEmbedCSS: '', cacheBust: false })
+                .then(async (blob) => {
+                    const fileName = (nomeArquivo || 'relatorio_combustivel') + '.png';
+                    const file = new File([blob], fileName, { type: 'image/png' });
+
+                    // 1. Web Share API (Mobile nativo)
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                files: [file],
+                                title: 'Relatório Diário - T.A.N.K',
+                                text: textoLegenda || ''
+                            });
+                            this.gerandoImagem = false;
+                            return;
+                        } catch (err) {
+                            if (err.name !== 'AbortError') console.warn(err);
+                        }
+                    }
+
+                    // 2. Clipboard API (Ctrl+V direto no WhatsApp Web)
+                    if (navigator.clipboard && window.ClipboardItem) {
+                        try {
+                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                            this.mostrarNotificacao('✅ Imagem Copiada!', 'Cole no WhatsApp com Ctrl + V.');
+                            this.gerandoImagem = false;
+                            return;
+                        } catch (e) {
+                            console.warn(e);
+                        }
+                    }
+
+                    // 3. Fallback: Download
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    this.mostrarNotificacao('📸 Card Baixado!', 'Imagem salva com sucesso.');
+                    this.gerandoImagem = false;
+                })
+                .catch((err) => {
+                    console.error('Erro:', err);
+                    alert('Falha ao processar imagem.');
+                    this.gerandoImagem = false;
+                });
+        },
+
+        abrirWhatsAppWeb(numero, texto) {
+            let numLimpo = (numero || '').replace(/\D/g, '');
+            if (!numLimpo) return alert('Informe um número válido com DDI e DDD.');
+            window.open(`https://api.whatsapp.com/send?phone=${numLimpo}&text=${encodeURIComponent(texto)}`, '_blank');
+        }
+    };
+};
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('centralWhatsapp', window.centralWhatsapp);
+});
+</script>
+
+<div class="space-y-6 max-w-7xl mx-auto" x-data="centralWhatsapp(centralWhatsappConfig)">
+
+    <!-- Cabeçalho Principal -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-4">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">📱</span>
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Central WhatsApp & Relatórios de Obra</h1>
+                <p class="text-slate-500 dark:text-slate-400 text-xs">Envio Meta Cloud API, cópia manual formatada e compartilhamento direto de qualquer data</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('whatsapp.contatos') }}" 
+               class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow transition border border-slate-700">
+                👥 Gerenciar Contatos
+            </a>
+            {% endif %}
+
+            <!-- Seletor de Data Padrão Brasileiro (DD/MM/AAAA) -->
+            <form id="form-filtro-data" action="{{ url_for('whatsapp.painel') }}" method="GET" class="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <input type="hidden" name="aba" :value="abaAtiva">
+                <div class="flex items-center gap-1.5 px-2">
+                    <span class="text-slate-400 text-xs">📅</span>
+                    <label for="filtro-data-whatsapp" class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 hidden sm:inline">Data:</label>
+                    <input type="text" 
+                           id="filtro-data-whatsapp" 
+                           name="data" 
+                           value="{{ data_atual }}" 
+                           placeholder="DD/MM/AAAA" 
+                           class="w-28 px-2.5 py-1.5 text-xs font-bold font-mono rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-center focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <button type="submit" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
+                    Filtrar
+                </button>
+                <button type="button" @click="definirDataHoje()" title="Voltar para a data de hoje" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition cursor-pointer">
+                    Hoje
+                </button>
+                <button type="button" @click="definirDataOntem()" title="Ir para ontem" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition cursor-pointer">
+                    Ontem
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Navegação por Abas -->
+    <div class="bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+            <button @click="mudarAba('meta')" :class="abaAtiva === 'meta' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50'" class="py-3 px-4 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2">
+                <span>⚡ Envio Meta API (Oficial)</span>
+            </button>
+            <button @click="mudarAba('manual')" :class="abaAtiva === 'manual' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50'" class="py-3 px-4 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2">
+                <span>📋 Cópia Manual (Relatórios)</span>
+            </button>
+            <button @click="mudarAba('web')" :class="abaAtiva === 'web' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50'" class="py-3 px-4 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2">
+                <span>🚀 Envio Direto (WhatsApp Web)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ABA 1: META API -->
+    <div x-show="abaAtiva === 'meta'" x-transition.opacity class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-5 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                    <h2 class="text-base font-black uppercase">📤 Disparo de Relatório</h2>
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono">
+                        📅 {{ data_atual }}
+                    </span>
+                </div>
+
+                <form action="{{ url_for('whatsapp.enviar_relatorio') }}" method="POST" class="space-y-4">
+                    {% if csrf_token %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>{% endif %}
+                    <input type="hidden" name="data" value="{{ data_atual }}">
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Modo de Envio</label>
+                        <div class="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                            <button type="button" @click="modoEnvioMeta = 'template'" :class="modoEnvioMeta === 'template' ? 'bg-blue-600 text-white font-black' : 'text-slate-600 dark:text-slate-400'" class="py-2 rounded-lg text-xs transition cursor-pointer">🏷️ Template Oficial</button>
+                            <button type="button" @click="modoEnvioMeta = 'texto'" :class="modoEnvioMeta === 'texto' ? 'bg-blue-600 text-white font-black' : 'text-slate-600 dark:text-slate-400'" class="py-2 rounded-lg text-xs transition cursor-pointer">📝 Texto Livre</button>
+                        </div>
+                        <input type="hidden" name="modo_envio" x-model="modoEnvioMeta">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">🏗️ Obra *</label>
+                        <select name="obra_id" x-model="obraSelecionadaId" required class="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold">
+                            {% for item in obras_dados %}
+                            <option value="{{ item.obra.id }}">{{ item.obra.codigo }} - {{ item.obra.nome[:40] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">👤 Contato *</label>
+                        <select name="contato_id" x-model="contatoSelecionadoId" required class="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-semibold">
+                            {% for c in contatos %}
+                            <option value="{{ c.id }}">{{ c.nome }} ({{ c.numero }})</option>
+                            {% else %}
+                            <option value="">Nenhum contato cadastrado</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div x-show="modoEnvioMeta === 'texto'">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">📝 Mensagem Livre</label>
+                        <textarea name="mensagem_personalizada" rows="3" placeholder="Deixe em branco para usar o relatório padronizado da data {{ data_atual }}..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 resize-none"></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs uppercase rounded-xl shadow-lg transition cursor-pointer">
+                        Disparar Mensagem via Meta API
+                    </button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-7 space-y-4 flex flex-col items-center">
+                {% for item in obras_dados %}
+                <div x-show="obraSelecionadaId == '{{ item.obra.id }}'" class="w-full max-w-[400px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                        <span class="text-xs font-black text-white uppercase">🖼️ Card {{ item.obra.codigo }}</span>
+                        <div class="flex gap-1.5">
+                            <button @click="compartilharImagemCard('card-meta-obra-{{ item.obra.id }}', 'relatorio_{{ item.obra.codigo }}_{{ data_atual|replace('/', '_') }}', `{{ item.mensagem_texto }}`)" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer">📤 Compartilhar</button>
+                            <button @click="baixarImagemCard('card-meta-obra-{{ item.obra.id }}', 'relatorio_{{ item.obra.codigo }}_{{ data_atual|replace('/', '_') }}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition cursor-pointer">📸 Baixar</button>
+                        </div>
+                    </div>
+                    {{ render_card_obra(item, "card-meta-obra-" ~ item.obra.id, data_atual) }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ABA 2: CÓPIA MANUAL -->
+    <div x-show="abaAtiva === 'manual'" x-transition.opacity class="space-y-6">
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <h2 class="text-sm font-black uppercase text-slate-800 dark:text-white">📋 Relatório Visual por Obra</h2>
+                <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                    📅 {{ data_atual }}
+                </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <select x-model="filtroObraManual" class="px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 font-bold">
+                    <option value="todas">🏗️ Todas as Obras</option>
+                    {% for item in obras_dados %}
+                    <option value="{{ item.obra.id }}">{{ item.obra.codigo }} - {{ item.obra.nome[:30] }}</option>
+                    {% endfor %}
+                </select>
+                <button @click="abrirModalTexto(`{{ texto_geral }}`)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow transition cursor-pointer">
+                    📋 Copiar Geral ({{ data_atual }})
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
+            {% for item in obras_dados %}
+            <div x-show="filtroObraManual === 'todas' || filtroObraManual == '{{ item.obra.id }}'"
+                 class="w-full max-w-[390px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col justify-between">
+                {{ render_card_obra(item, "card-obra-manual-" ~ item.obra.id, data_atual) }}
+                <div class="p-3 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-between gap-1.5">
+                    <button @click="compartilharImagemCard('card-obra-manual-{{ item.obra.id }}', 'relatorio_{{ item.obra.codigo }}_{{ data_atual|replace('/', '_') }}', `{{ item.mensagem_texto }}`)" class="px-2.5 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer">📤 Compartilhar</button>
+                    <button @click="baixarImagemCard('card-obra-manual-{{ item.obra.id }}', 'relatorio_{{ item.obra.codigo }}_{{ data_atual|replace('/', '_') }}')" class="px-2.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white transition cursor-pointer">📸 Imagem</button>
+                    <button @click="copiarTexto(`{{ item.mensagem_texto }}`)" class="px-2.5 py-1.5 rounded-xl text-xs font-black bg-slate-700 hover:bg-slate-600 text-white transition cursor-pointer">📋 Texto</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ABA 3: WHATSAPP WEB -->
+    <div x-show="abaAtiva === 'web'" x-transition.opacity class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Coluna Esquerda: Configuração e Destinatários Cadastrados -->
+            <div class="lg:col-span-7 space-y-5">
+                <!-- Seletor de Obra e Informações -->
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-700 pb-3 gap-2">
+                        <div>
+                            <h2 class="text-base font-black uppercase text-slate-800 dark:text-white flex items-center gap-2">
+                                <span>🚀</span> Envio Direto via WhatsApp Web
+                            </h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                Selecione os contatos pré-cadastrados, gere o card visual e envie no WhatsApp Web com 1 clique
+                            </p>
+                        </div>
+                        <span class="text-xs font-bold px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-mono shrink-0 self-start sm:self-auto">
+                            📅 {{ data_atual }}
+                        </span>
+                    </div>
+
+                    <!-- Seleção de Obra -->
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5 flex items-center justify-between">
+                            <span>🏗️ Obra de Referência</span>
+                            <span class="text-[11px] font-normal text-slate-400">Card e dados consolidados</span>
+                        </label>
+                        <select x-model="obraSelecionadaId" class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            {% for item in obras_dados %}
+                            <option value="{{ item.obra.id }}">{{ item.obra.codigo }} - {{ item.obra.nome[:45] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Painel de Contatos Cadastrados (Checkboxes & Seleção Múltipla) -->
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
+                    <!-- Cabeçalho do Bloco de Contatos -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-black uppercase text-slate-800 dark:text-white flex items-center gap-1.5">
+                                <span>👥</span> Destinatários Cadastrados
+                            </h3>
+                            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                                  :class="contatosSelecionados.length > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'">
+                                <span x-text="contatosSelecionados.length"></span> selecionado(s)
+                            </span>
+                        </div>
+
+                        <!-- Link para gerenciar contatos -->
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('whatsapp.contatos') }}" target="_blank" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                            <span>⚙️</span> Controle de Números
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <!-- Barra de Busca e Filtros Rápidos -->
+                    <div class="space-y-2.5">
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">🔍</span>
+                            <input type="text"
+                                   x-model="buscaContato"
+                                   placeholder="Buscar contato por nome, função, telefone ou obra..."
+                                   class="w-full pl-8 pr-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <button x-show="buscaContato" @click="buscaContato = ''" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 text-xs">✕</button>
+                        </div>
+
+                        <!-- Filtros Pills e Botões de Marcação em Massa -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div class="flex flex-wrap items-center gap-1">
+                                <button type="button" @click="filtroTipo = 'todos'"
+                                        :class="filtroTipo === 'todos' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-sm' : 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300'"
+                                        class="px-2.5 py-1 rounded-lg font-bold transition cursor-pointer">
+                                    Todos (<span x-text="contatos.length"></span>)
+                                </button>
+                                <button type="button" @click="filtroTipo = 'obra'"
+                                        :class="filtroTipo === 'obra' ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300'"
+                                        class="px-2.5 py-1 rounded-lg font-bold transition cursor-pointer">
+                                    Desta Obra (<span x-text="contatosDestaObra.length"></span>)
+                                </button>
+                                <button type="button" @click="filtroTipo = 'ativos'"
+                                        :class="filtroTipo === 'ativos' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300'"
+                                        class="px-2.5 py-1 rounded-lg font-bold transition cursor-pointer">
+                                    Ativos (<span x-text="contatos.filter(c => c.ativo).length"></span>)
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" @click="marcarTodosFiltrados()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer">
+                                    ☑️ Marcar Todos
+                                </button>
+                                <button type="button" @click="marcarContatosDestaObra()" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer">
+                                    🏗️ Desta Obra
+                                </button>
+                                <button type="button" @click="desmarcarTodosContatos()" class="px-2 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[11px] font-semibold transition cursor-pointer">
+                                    Desmarcar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista Interativa de Contatos com Checkboxes -->
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                        <div class="max-h-[320px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
+                            <template x-for="c in contatosFiltrados" :key="c.id">
+                                <div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-750 transition flex items-center justify-between gap-3"
+                                     :class="isContatoSelecionado(c.id) ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''">
+                                    
+                                    <!-- Checkbox e Detalhes do Contato -->
+                                    <label class="flex items-center gap-3 cursor-pointer min-w-0 flex-1 select-none">
+                                        <input type="checkbox"
+                                               :checked="isContatoSelecionado(c.id)"
+                                               @change="toggleContato(c.id)"
+                                               class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer">
+                                        
+                                        <!-- Avatar com Iniciais -->
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm"
+                                             :class="isContatoSelecionado(c.id) ? 'bg-amber-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'"
+                                             x-text="obterIniciais(c.nome)">
+                                        </div>
+
+                                        <!-- Informações -->
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex items-center gap-1.5 flex-wrap">
+                                                <span class="text-xs font-bold text-slate-900 dark:text-white truncate" x-text="c.nome"></span>
+                                                <template x-if="c.funcao">
+                                                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium" x-text="c.funcao"></span>
+                                                </template>
+                                                <template x-if="!c.ativo">
+                                                    <span class="text-[9px] px-1 py-0.2 rounded bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold">Inativo</span>
+                                                </template>
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                                                <span x-text="formatarTelefone(c.numero)"></span>
+                                                <template x-if="c.obras_codigos && c.obras_codigos.length">
+                                                    <span class="text-[10px] text-amber-600 dark:text-amber-400 font-sans font-bold">
+                                                        [<span x-text="c.obras_codigos.join(', ')"></span>]
+                                                    </span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </label>
+
+                                    <!-- Ação Rápida Individual (Abrir WhatsApp Web) -->
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <template x-if="contatosEnviados[c.id]">
+                                            <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                                <span>✅</span> Aberto
+                                            </span>
+                                        </template>
+                                        <button type="button"
+                                                @click="abrirContatoWhatsAppWeb(c, true)"
+                                                title="Copia o card do relatório e abre a conversa deste contato no WhatsApp Web"
+                                                class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer">
+                                            <span>🚀</span>
+                                            <span class="hidden sm:inline">WhatsApp</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Estado Vazio -->
+                            <template x-if="contatosFiltrados.length === 0">
+                                <div class="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                                    <p class="font-bold">Nenhum contato encontrado com este filtro.</p>
+                                    <button type="button" @click="buscaContato = ''; filtroTipo = 'todos'" class="mt-2 text-blue-600 dark:text-blue-400 underline font-semibold cursor-pointer">Limpar filtros de busca</button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Seção Opcional: Adicionar Destinatário Avulso -->
+                    <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+                        <button type="button" @click="mostrarCampoAvulso = !mostrarCampoAvulso" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition cursor-pointer">
+                            <span x-text="mostrarCampoAvulso ? '▼' : '▶'"></span>
+                            <span>+ Enviar para número avulso (não cadastrado)</span>
+                        </button>
+                        <div x-show="mostrarCampoAvulso" x-transition.opacity class="mt-2.5 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Nome / Identificação</label>
+                                    <input type="text" x-model="nomeAvulso" placeholder="Ex: Fornecedor, Engenheiro" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Número (DDI + DDD + Telefone)</label>
+                                    <input type="text" x-model="numeroAvulso" placeholder="Ex: 5592985518889" class="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                                </div>
+                            </div>
+                            <button type="button" @click="enviarParaNumeroAvulso()" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition cursor-pointer">
+                                🚀 Abrir no WhatsApp Web com Número Avulso
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Botão de Ação Principal em Massa & Botões de Apoio -->
+                    <div class="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <button type="button"
+                                @click="iniciarFilaEnvio()"
+                                :disabled="contatosSelecionados.length === 0"
+                                :class="contatosSelecionados.length > 0 ? 'bg-amber-600 hover:bg-amber-700 active:scale-98 text-white shadow-lg cursor-pointer' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'"
+                                class="w-full py-3 px-4 font-black text-xs uppercase rounded-xl transition flex items-center justify-center gap-2">
+                            <span>🚀 Iniciar Envio para Selecionados</span>
+                            <span class="bg-black/20 px-2 py-0.5 rounded text-[11px]" x-text="contatosSelecionados.length"></span>
+                        </button>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button"
+                                    @click="copiarImagemCardManual()"
+                                    class="py-2 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer">
+                                <span>📸 Copiar Imagem</span>
+                            </button>
+                            <button type="button"
+                                    @click="baixarImagemCardAtual()"
+                                    class="py-2 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer">
+                                <span>💾 Baixar PNG</span>
+                            </button>
+                            <button type="button"
+                                    @click="copiarTexto(obterMensagemObraAtual())"
+                                    class="py-2 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer">
+                                <span>📋 Copiar Texto</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna Direita: Prévia do Card Visual -->
+            <div class="lg:col-span-5 space-y-4 flex flex-col items-center">
+                {% for item in obras_dados %}
+                <div x-show="obraSelecionadaId == '{{ item.obra.id }}'" class="w-full max-w-[420px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                        <span class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                            <span>🖼️</span> Card {{ item.obra.codigo }}
+                        </span>
+                        <div class="flex gap-1.5">
+                            <button @click="compartilharImagemCard('card-web-obra-{{ item.obra.id }}', 'relatorio_{{ item.obra.codigo }}_{{ data_atual|replace('/', '_') }}', `{{ item.mensagem_texto }}`)" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer">📤 Compartilhar</button>
+                            <button @click="baixarImagemCard('card-web-obra-{{ item.obra.id }}', 'relatorio_{{ item.obra.codigo }}_{{ data_atual|replace('/', '_') }}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition cursor-pointer">📸 Baixar</button>
+                        </div>
+                    </div>
+                    {{ render_card_obra(item, "card-web-obra-" ~ item.obra.id, data_atual) }}
+                </div>
+                {% endfor %}
+
+                <!-- Card de Instrução e Produtividade -->
+                <div class="w-full max-w-[420px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 p-3.5 rounded-xl text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                    <p class="font-bold flex items-center gap-1.5">
+                        <span>💡</span> Como funciona o envio de imagem no WhatsApp Web:
+                    </p>
+                    <p class="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                        Ao clicar em enviar, o card visual em alta resolução é automaticamente copiado para a sua área de transferência (clipboard). Quando a conversa abrir no WhatsApp Web, basta pressionar <strong>Ctrl + V</strong> para colar a imagem junto ao texto do relatório e apertar <strong>Enter</strong>!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: FILA DE DISPARO WHATSAPP WEB -->
+    <div x-show="modalFilaAberto" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]" @click.away="modalFilaAberto = false">
+            <!-- Cabeçalho -->
+            <div class="bg-slate-950 px-6 py-4 text-white flex justify-between items-center border-b border-slate-800 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🚀</span>
+                    <div>
+                        <h3 class="font-black uppercase text-sm">Fila de Disparo WhatsApp Web</h3>
+                        <p class="text-[11px] text-slate-400 font-mono" x-text="(obterObraAtual().codigo || 'OBRA') + ' • ' + dataAtual"></p>
+                    </div>
+                </div>
+                <button @click="modalFilaAberto = false" class="text-slate-400 hover:text-white cursor-pointer text-base">✕</button>
+            </div>
+
+            <!-- Corpo com Scroll -->
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <!-- Dica do Clipboard em Destaque -->
+                <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-2.5">
+                    <span class="text-lg shrink-0">📸</span>
+                    <div class="leading-relaxed">
+                        <p class="font-bold text-emerald-500 dark:text-emerald-400">Imagem do Relatório copiada para o Ctrl+V!</p>
+                        <p class="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5">
+                            No WhatsApp Web de cada contato, pressione <strong class="text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">Ctrl + V</strong> para colar a imagem do card e aperte <strong class="text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">Enter</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Barra de Progresso da Fila -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-600 dark:text-slate-300">Progresso do Lote</span>
+                        <span class="text-amber-600 dark:text-amber-400 font-mono">
+                            <span x-text="contagemEnviadosFila()"></span> de <span x-text="filaContatos.length"></span> contatos
+                        </span>
+                    </div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="h-2 bg-emerald-500 transition-all duration-300 rounded-full"
+                             :style="`width: ${(contagemEnviadosFila() / (filaContatos.length || 1)) * 100}%`"></div>
+                    </div>
+                </div>
+
+                <!-- Card de Foco: Contato Atual na Vez -->
+                <template x-if="filaContatos[indiceFila]">
+                    <div class="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Contato na Vez (<span x-text="indiceFila + 1"></span> de <span x-text="filaContatos.length"></span>)
+                            </span>
+                            <span class="text-[11px] font-bold px-2 py-0.5 rounded"
+                                  :class="statusFila[filaContatos[indiceFila].id] === 'enviado' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'">
+                                <span x-text="statusFila[filaContatos[indiceFila].id] === 'enviado' ? '✅ Aberto no WhatsApp' : '⚪ Pendente'"></span>
+                            </span>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-sm shrink-0"
+                                 x-text="obterIniciais(filaContatos[indiceFila].nome)"></div>
+                            <div class="min-w-0 flex-1">
+                                <h4 class="text-sm font-bold text-slate-900 dark:text-white" x-text="filaContatos[indiceFila].nome"></h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400" x-text="filaContatos[indiceFila].funcao || 'Destinatário'"></p>
+                                <p class="text-xs font-mono font-bold text-amber-600 dark:text-amber-400" x-text="formatarTelefone(filaContatos[indiceFila].numero)"></p>
+                            </div>
+                        </div>
+
+                        <!-- Botão Primário de Disparo para o Contato Atual -->
+                        <div class="pt-1 flex flex-col sm:flex-row gap-2">
+                            <button type="button"
+                                    @click="enviarContatoFila(indiceFila)"
+                                    class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+                                <span>🚀 Abrir Conversa no WhatsApp Web</span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Navegação Rápida entre Contatos da Fila -->
+                <div class="flex justify-between items-center text-xs">
+                    <button type="button"
+                            @click="indiceFila = Math.max(0, indiceFila - 1)"
+                            :disabled="indiceFila === 0"
+                            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed">
+                        ⬅️ Anterior
+                    </button>
+                    <span class="text-slate-400 font-mono text-[11px]">
+                        Contato <span x-text="indiceFila + 1"></span> de <span x-text="filaContatos.length"></span>
+                    </span>
+                    <button type="button"
+                            @click="indiceFila = Math.min(filaContatos.length - 1, indiceFila + 1)"
+                            :disabled="indiceFila >= filaContatos.length - 1"
+                            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed">
+                        Próximo ➡️
+                    </button>
+                </div>
+
+                <!-- Lista Completa da Fila -->
+                <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                    <div class="bg-slate-100 dark:bg-slate-800 px-3 py-2 text-[11px] font-bold text-slate-500 uppercase flex justify-between items-center">
+                        <span>Destinatários nesta Fila</span>
+                        <button type="button" @click="abrirTodosEmAbas()" class="text-blue-600 dark:text-blue-400 hover:underline normal-case font-semibold cursor-pointer">
+                            ⚡ Abrir todos em abas
+                        </button>
+                    </div>
+                    <div class="max-h-36 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
+                        <template x-for="(cf, idx) in filaContatos" :key="cf.id">
+                            <div class="px-3 py-2 text-xs flex items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                                 :class="idx === indiceFila ? 'bg-amber-50/50 dark:bg-amber-950/20 font-bold' : ''">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <span class="text-xs" x-text="statusFila[cf.id] === 'enviado' ? '✅' : '⚪'"></span>
+                                    <span class="truncate" x-text="cf.nome"></span>
+                                    <span class="text-[10px] text-slate-400 font-mono shrink-0" x-text="formatarTelefone(cf.numero)"></span>
+                                </div>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <button type="button" @click="indiceFila = idx; enviarContatoFila(idx)" class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white text-[10px] font-bold transition cursor-pointer">
+                                        Abrir
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rodapé do Modal -->
+            <div class="bg-slate-50 dark:bg-slate-950/60 px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
+                <button type="button" @click="copiarImagemCardManual()" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-amber-600 flex items-center gap-1 cursor-pointer">
+                    <span>📸</span> Recopiar Imagem (Ctrl+V)
+                </button>
+                <button type="button" @click="modalFilaAberto = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition cursor-pointer">
+                    Concluir e Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE TEXTO -->
+    <div x-show="modalTextoAberto" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden" @click.away="modalTextoAberto = false">
+            <div class="bg-slate-950 px-6 py-4 text-white flex justify-between items-center border-b border-slate-800">
+                <h3 class="font-black uppercase text-sm">Relatório Formatado ({{ data_atual }})</h3>
+                <button @click="modalTextoAberto = false" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="bg-slate-950 text-slate-200 p-4 rounded-xl border border-slate-800 text-xs font-mono max-h-80 overflow-y-auto whitespace-pre-wrap select-all" x-text="textoModal"></div>
+                <div class="flex justify-between items-center">
+                    <button @click="modalTextoAberto = false" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 cursor-pointer">Fechar</button>
+                    <button @click="copiarTexto(textoModal)" class="px-5 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+                        <span x-text="copiado ? '✅ Copiado!' : '📋 Copiar Texto'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION FLUTUANTE -->
+    <div x-show="toast.visivel"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-4"
+         class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-start gap-3 max-w-sm"
+         x-cloak>
+        <span class="text-2xl shrink-0">📸</span>
+        <div class="min-w-0 flex-1">
+            <h4 class="text-xs font-black uppercase text-emerald-400" x-text="toast.titulo"></h4>
+            <p class="text-[11px] text-slate-300 mt-0.5 leading-snug" x-text="toast.mensagem"></p>
+        </div>
+        <button @click="toast.visivel = false" class="text-slate-400 hover:text-white text-xs cursor-pointer">✕</button>
+    </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- REGISTRO ALPINE.JS & FLATPICKR                                    -->
+<!-- ================================================================= -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr("#filtro-data-whatsapp", {
+            dateFormat: "d/m/Y",
+            locale: (typeof flatpickr.l10ns !== 'undefined' && flatpickr.l10ns.pt) ? flatpickr.l10ns.pt : "pt",
+            defaultDate: "{{ data_atual }}",
+            allowInput: true,
+            onChange: function(selectedDates, dateStr) {
+                if (dateStr && dateStr.length === 10) {
+                    document.getElementById('form-filtro-data').submit();
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

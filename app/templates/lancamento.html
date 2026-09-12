@@ -1,0 +1,773 @@
+{% extends "base.html" %}
+
+{% block title %}Lançamento em Lote - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+    
+    <!-- Cabeçalho -->
+    <div class="border-b border-slate-200 dark:border-slate-700 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Lançamento de Abastecimentos em Lote</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Insira múltiplos abastecimentos simultâneos de forma rápida, com conferência em tempo real</p>
+        </div>
+        <div class="mt-3 sm:mt-0 flex items-center gap-3">
+            <a href="{{ url_for('operacoes.entradas') }}" class="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                Receber Carga (NF)
+            </a>
+            <a href="{{ url_for('operacoes.transferencia') }}" class="text-sm font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                Transbordo
+            </a>
+        </div>
+    </div>
+
+    <!-- Datalist para sugestões de Frente de Serviço -->
+    <datalist id="frentesSugeridas">
+        <option value="TERRAPLENAGEM">
+        <option value="PAVIMENTAÇÃO">
+        <option value="DRENAGEM">
+        <option value="OBRAS DE ARTE ESPECIAL (OAE)">
+        <option value="ESCAVAÇÃO E CARGA">
+        <option value="CONSERVAÇÃO / MANUTENÇÃO">
+        <option value="CANTEIRO DE OBRAS">
+        <option value="TRANSPORTE DE MATERIAL">
+        <option value="APOIO OPERACIONAL">
+        <option value="OUTROS">
+    </datalist>
+
+    <!-- Formulário Principal -->
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <form action="{{ url_for('operacoes.lancamento') }}" method="POST" id="formLote" class="space-y-6">
+            
+            <!-- CONTROLES SUPERIORES: DATA E OBRA -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                <!-- Seletor de Data -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Data dos Abastecimentos *
+                    </label>
+                    <div class="relative flex items-center">
+                        <input type="text" id="dataBaseDisplay" placeholder="DD/MM/AAAA" autocomplete="off"
+                               class="w-full px-3 py-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 dark:text-slate-100 cursor-pointer font-medium">
+                        <button type="button" id="btnCalendario" class="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <input type="hidden" name="data_abastecimento" id="dataBase" required>
+                    <p class="text-xs text-slate-500 mt-1">Clique para abrir o calendário ou digite a data no formato DD/MM/AAAA</p>
+                </div>
+
+                <!-- Seletor de Obra -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Obra de Lotação *
+                    </label>
+                    <select name="obra_id" id="obraSelect" required onchange="atualizarFornecedoresPorObra()"
+                            class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 dark:text-slate-100 font-medium">
+                        {% for obra in obras_lista %}
+                        <option value="{{ obra.id }}" {% if current_user.obra_padrao_id == obra.id %}selected{% endif %}>
+                            🏗️ {{ obra.codigo }} - {{ obra.nome[:50] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-slate-500 mt-1">Define em qual obra o abastecimento será registrado e filtra postos vinculados</p>
+                </div>
+            </div>
+
+            <!-- PAINEL DE PINS ATIVOS -->
+            <div id="painelPins" class="hidden bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 text-sm">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold text-amber-700 dark:text-amber-300">📌 Pins da primeira linha:</span>
+                    <span id="pinsResumo" class="text-slate-600 dark:text-slate-300"></span>
+                    <button type="button" onclick="limparTodosPins()" 
+                            class="ml-auto text-xs text-amber-700 dark:text-amber-300 hover:underline font-semibold">
+                        ✕ Limpar todos
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABELA DE LANÇAMENTOS EM LOTE -->
+            <div class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-x-auto">
+                <table class="w-full divide-y divide-slate-200 dark:divide-slate-700" id="tabelaLote" style="min-width: 900px;">
+                    <thead class="bg-slate-50 dark:bg-slate-900/50">
+                        <tr>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:18%">Placa/Equip *</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:13%">Insumo *</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:18%">Posto *</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:14%">Frente de Serviço</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:10%">Qtd (L/Kg) *</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:10%">Hodômetro</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:10%">Horímetro</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase" style="width:10%">Observação</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase" style="width:4%">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
+                        <!-- Linha Modelo (clonada via JS) -->
+                        <tr class="linha-lote align-top hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition">
+                            <!-- Equipamento -->
+                            <td class="px-2 py-2">
+                                <div class="flex items-center gap-1">
+                                    <select name="equipamento_id[]" required onchange="aoMudarEquipamento(this)"
+                                            class="equipamento-select w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-slate-100">
+                                        <option value="">-- Selecione --</option>
+                                        {% for eq in equipamentos %}
+                                            <option value="{{ eq.id }}"
+                                                    data-ultimo-hodo="{{ leituras.get(eq.id, {}).get('hodometro') or '' }}"
+                                                    data-ultimo-hori="{{ leituras.get(eq.id, {}).get('horimetro') or '' }}"
+                                                    data-tipo="{{ eq.tipo_equipamento or '' }}">
+                                                {{ eq.prefixo_placa }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="pin-btn" data-campo="equipamento" onclick="togglePin(this)" 
+                                            title="Fixar equipamento da primeira linha nas demais">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4h3a1 1 0 011 1v1.5a1 1 0 01-.293.707L15 10v4l-2 5h-2l-2-5v-4l-3.707-3.793A1 1 0 014 6.5V5a1 1 0 011-1h3m4 0v3"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="info-leitura text-[11px] text-slate-400 mt-0.5 px-1 truncate"></div>
+                            </td>
+                            
+                            <!-- Insumo -->
+                            <td class="px-2 py-2">
+                                <div class="flex items-center gap-1">
+                                    <select name="categoria_insumo[]" required onchange="atualizarPostosPorInsumo(this); atualizarConferenciaLote();"
+                                            class="insumo-select w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-slate-100">
+                                        <option value="DIESEL S10">Diesel S10</option>
+                                        <option value="DIESEL S500" selected>Diesel S500</option>
+                                        <option value="GASOLINA COMUM">Gasolina</option>
+                                        <option value="ARLA 32">ARLA 32</option>
+                                        <option value="OLEO LUBRIFICANTE">Óleo Motor</option>
+                                        <option value="GRAXA">Graxa (Kg)</option>
+                                    </select>
+                                    <button type="button" class="pin-btn" data-campo="insumo" onclick="togglePin(this)" 
+                                            title="Fixar insumo/combustivel da primeira linha nas demais">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4h3a1 1 0 011 1v1.5a1 1 0 01-.293.707L15 10v4l-2 5h-2l-2-5v-4l-3.707-3.793A1 1 0 014 6.5V5a1 1 0 011-1h3m4 0v3"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                            
+                            <!-- Fornecedor/Posto (filtrado por obra + insumo) -->
+                            <td class="px-2 py-2">
+                                <div class="flex items-center gap-1">
+                                    <select name="fornecedor_id[]" required onchange="atualizarConferenciaLote();"
+                                            class="fornecedor-select w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-slate-100">
+                                        <option value="">-- Selecione --</option>
+                                        {% for forn in fornecedores %}
+                                            <option value="{{ forn.id }}" 
+                                                    data-obra="{{ forn.obra_id or '' }}" 
+                                                    data-tipo-insumo="{{ forn.tipo_combustivel or '' }}">
+                                                {{ forn.nome }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="pin-btn" data-campo="fornecedor" onclick="togglePin(this)" 
+                                            title="Fixar posto/fornecedor da primeira linha nas demais">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4h3a1 1 0 011 1v1.5a1 1 0 01-.293.707L15 10v4l-2 5h-2l-2-5v-4l-3.707-3.793A1 1 0 014 6.5V5a1 1 0 011-1h3m4 0v3"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                            
+                            <!-- Frente de Serviço -->
+                            <td class="px-2 py-2">
+                                <div class="flex items-center gap-1">
+                                    <input type="text" name="frente_servico[]" list="frentesSugeridas" placeholder="Ex: Terraplenagem" 
+                                           class="frente-input w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded uppercase dark:bg-slate-900 dark:text-slate-100">
+                                    <button type="button" class="pin-btn" data-campo="frente" onclick="togglePin(this)" 
+                                            title="Fixar frente de serviço da primeira linha nas demais">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4h3a1 1 0 011 1v1.5a1 1 0 01-.293.707L15 10v4l-2 5h-2l-2-5v-4l-3.707-3.793A1 1 0 014 6.5V5a1 1 0 011-1h3m4 0v3"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                            
+                            <!-- Quantidade -->
+                            <td class="px-2 py-2">
+                                <input type="number" step="0.01" min="0.01" name="quantidade[]" required oninput="atualizarConferenciaLote();"
+                                        placeholder="0.00"
+                                        class="qtd-input w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-900 dark:text-slate-100 font-bold text-right">
+                            </td>
+                            
+                            <!-- Hodometro -->
+                            <td class="px-2 py-2">
+                                <input type="number" step="0.1" min="0" name="hodometro[]" placeholder="Km" oninput="validarLeituraLinha(this, 'hodo'); atualizarConferenciaLote();"
+                                        class="hodo-input w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-900 dark:text-slate-100">
+                                <div class="alerta-leitura text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 px-1 font-semibold hidden"></div>
+                            </td>
+                            
+                            <!-- Horimetro -->
+                            <td class="px-2 py-2">
+                                <input type="number" step="0.1" min="0" name="horimetro[]" placeholder="Hr" oninput="validarLeituraLinha(this, 'hori'); atualizarConferenciaLote();"
+                                        class="hori-input w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-900 dark:text-slate-100">
+                                <div class="alerta-leitura text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 px-1 font-semibold hidden"></div>
+                            </td>
+                            
+                            <!-- Observacao -->
+                            <td class="px-2 py-2">
+                                <input type="text" name="descricao_obs[]" placeholder="Obs..." 
+                                        class="w-full text-sm px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded uppercase dark:bg-slate-900 dark:text-slate-100">
+                            </td>
+                            
+                            <!-- Botao Remover -->
+                            <td class="px-2 py-2 text-center">
+                                <button type="button" onclick="removerLinha(this)" 
+                                        class="text-red-500 hover:text-red-700 transition p-1" title="Remover Linha">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAINEL DE CONFERÊNCIA AO VIVO -->
+            <div class="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-6 flex-wrap text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-500 dark:text-slate-400 font-medium">📋 Linhas Preenchidas:</span>
+                            <span id="confTotalLinhas" class="font-bold text-slate-800 dark:text-slate-100 text-base">0</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-500 dark:text-slate-400 font-medium">⛽ Volume Total do Lote:</span>
+                            <span id="confTotalLitros" class="font-bold text-blue-600 dark:text-blue-400 text-lg">0,00 L</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-500 dark:text-slate-400 font-medium">🚜 Máquinas / Veículos:</span>
+                            <span id="confTotalEquips" class="font-bold text-slate-700 dark:text-slate-300">0</span>
+                        </div>
+                    </div>
+                    <div id="confStatusAlerta" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                        Aguardando dados...
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTÕES INFERIORES: ADICIONAR E GRAVAR -->
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+                <button type="button" onclick="adicionarLinha()" 
+                        class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Adicionar Linha
+                </button>
+
+                <button type="submit" id="btnGravar"
+                        class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Gravar Todos os Lançamentos
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Histórico Recente para Conferência Imediata -->
+    <div class="mt-8">
+        <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <span>Últimos 5 Lançamentos Gravados</span>
+        </h3>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400">
+                    <tr>
+                        <th class="px-6 py-3 text-left font-semibold">Data</th>
+                        <th class="px-6 py-3 text-left font-semibold">Equipamento</th>
+                        <th class="px-6 py-3 text-left font-semibold">Obra</th>
+                        <th class="px-6 py-3 text-left font-semibold">Posto</th>
+                        <th class="px-6 py-3 text-left font-semibold">Insumo</th>
+                        <th class="px-6 py-3 text-right font-semibold">Volume</th>
+                        <th class="px-6 py-3 text-center font-semibold">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for item in ultimos %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <td class="px-6 py-3 text-slate-600 dark:text-slate-300">
+                            {{ item.data_abastecimento.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="px-6 py-3 font-bold text-slate-800 dark:text-slate-100">
+                            {{ item.equipamento_rel.prefixo_placa }}
+                        </td>
+                        <td class="px-6 py-3">
+                            {% if item.obra_rel %}
+                            <span class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded font-bold">
+                                {{ item.obra_rel.codigo }}
+                            </span>
+                            {% else %}
+                            <span class="text-xs text-slate-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-3 text-slate-600 dark:text-slate-300">
+                            {{ item.fornecedor_rel.nome }}
+                        </td>
+                        <td class="px-6 py-3 text-slate-600 dark:text-slate-300 text-xs">
+                            {{ item.categoria_insumo }}
+                        </td>
+                        <td class="px-6 py-3 font-bold text-blue-600 dark:text-blue-400 text-right">
+                            {{ "%.2f"|format(item.quantidade) }} L
+                        </td>
+                        <td class="px-6 py-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{{ url_for('operacoes.editar_abastecimento', id=item.id) }}" 
+                                   class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1" title="Editar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </a>
+                                <form action="{{ url_for('operacoes.excluir_lancamento', id=item.id) }}" method="POST" 
+                                      onsubmit="return confirm('Tem certeza que deseja estornar este lançamento?');">
+                                    <button type="submit" 
+                                            class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition p-1" 
+                                            title="Excluir Lançamento">
+                                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-6 text-center text-slate-400 dark:text-slate-500">
+                            Nenhum lançamento recente.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+
+<style>
+.dark .flatpickr-calendar {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+.dark .flatpickr-day { color: #cbd5e1; }
+.dark .flatpickr-day:hover,
+.dark .flatpickr-day.prevMonthDay:hover,
+.dark .flatpickr-day.nextMonthDay:hover {
+    background: #334155; border-color: #334155;
+}
+.dark .flatpickr-day.selected,
+.dark .flatpickr-day.selected:hover { background: #2563eb; border-color: #2563eb; }
+.dark .flatpickr-months .flatpickr-month,
+.dark .flatpickr-weekdays,
+.dark span.flatpickr-weekday { background: #0f172a; color: #94a3b8; }
+.dark .flatpickr-current-month input.cur-year,
+.dark .flatpickr-current-month .flatpickr-monthDropdown-months { color: #f1f5f9; }
+.dark .flatpickr-day.flatpickr-disabled,
+.dark .flatpickr-day.prevMonthDay,
+.dark .flatpickr-day.nextMonthDay { color: #475569; }
+
+.pin-btn {
+    flex-shrink: 0; background: none; border: none; cursor: pointer;
+    padding: 4px; color: #94a3b8; opacity: 0.5;
+    transition: all 0.2s ease; border-radius: 4px; line-height: 1;
+}
+.pin-btn:hover { opacity: 1; color: #f59e0b; background: rgba(245,158,11,0.1); transform: scale(1.1); }
+.pin-btn.pin-ativo { opacity: 1; color: #f59e0b; background: rgba(245,158,11,0.15); transform: scale(1.1); box-shadow: 0 0 0 1px rgba(245,158,11,0.3); }
+.select-fixado { border-color: #f59e0b !important; background-color: rgba(245,158,11,0.05) !important; box-shadow: 0 0 0 1px rgba(245,158,11,0.2); }
+
+.linha-lote {
+    transition: background-color 0.15s ease-in-out;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+<script>
+(function () {
+    var displayInput = document.getElementById('dataBaseDisplay');
+    var hiddenInput  = document.getElementById('dataBase');
+
+    var fp = flatpickr(displayInput, {
+        locale: 'pt',
+        dateFormat: 'd/m/Y',
+        allowInput: true,
+        disableMobile: true,
+        onChange: function (selectedDates) {
+            if (selectedDates.length) {
+                var d    = selectedDates[0];
+                var yyyy = d.getFullYear();
+                var mm   = String(d.getMonth() + 1).padStart(2, '0');
+                var dd   = String(d.getDate()).padStart(2, '0');
+                hiddenInput.value = yyyy + '-' + mm + '-' + dd;
+            } else {
+                hiddenInput.value = '';
+            }
+        },
+        onReady: function (selectedDates, dateStr, instance) {
+            if (instance && typeof instance.setDate === 'function') {
+                instance.setDate(new Date(), true);
+            }
+        }
+    });
+
+    var btnCal = document.getElementById('btnCalendario');
+    if (btnCal) {
+        btnCal.addEventListener('click', function () {
+            if (fp && typeof fp.toggle === 'function') {
+                fp.toggle();
+            }
+        });
+    }
+
+    if (displayInput) {
+        displayInput.addEventListener('blur', function () {
+            var val   = this.value.trim();
+            var match = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (match) {
+                var dd = match[1], mm = match[2], yyyy = match[3];
+                var date = new Date(yyyy + '-' + mm + '-' + dd + 'T12:00:00');
+                if (!isNaN(date) && date.getFullYear() === Number(yyyy) &&
+                    date.getMonth() + 1 === Number(mm) && date.getDate() === Number(dd)) {
+                    if (fp && typeof fp.setDate === 'function') {
+                        fp.setDate(date, false);
+                    }
+                    hiddenInput.value = yyyy + '-' + mm + '-' + dd;
+                } else {
+                    hiddenInput.value = '';
+                }
+            } else {
+                hiddenInput.value = '';
+            }
+        });
+    }
+})();
+
+var pinsFixados = { equipamento: null, insumo: null, fornecedor: null, frente: null };
+var rotulosCampos = { equipamento: 'Equipamento', insumo: 'Insumo/Combustível', fornecedor: 'Posto', frente: 'Frente de Serviço' };
+
+function togglePin(botao) {
+    var campo = botao.dataset.campo;
+    var linha = document.querySelector('#tabelaLote tbody tr');
+    if (pinsFixados[campo] === null) {
+        var elem = obterSelectDaLinha(linha, campo);
+        if (!elem || !elem.value) {
+            alert('Preencha ou selecione um valor de ' + rotulosCampos[campo] + ' antes de fixar o pin.');
+            return;
+        }
+        pinsFixados[campo] = elem.value;
+        pinsFixados[campo + '_texto'] = elem.options ? elem.options[elem.selectedIndex].text : elem.value.toUpperCase();
+        aplicarPinsEmTodasAsLinhas();
+        aplicarDestaqueFixado();
+        atualizarPainelPins();
+    } else {
+        pinsFixados[campo] = null;
+        pinsFixados[campo + '_texto'] = null;
+        aplicarDestaqueFixado();
+        atualizarPainelPins();
+    }
+}
+
+function obterSelectDaLinha(linha, campo) {
+    if (campo === 'equipamento') return linha.querySelector('select[name="equipamento_id[]"]');
+    if (campo === 'insumo')      return linha.querySelector('select[name="categoria_insumo[]"]');
+    if (campo === 'fornecedor')  return linha.querySelector('.fornecedor-select');
+    if (campo === 'frente')      return linha.querySelector('.frente-input');
+    return null;
+}
+
+function aplicarDestaqueFixado() {
+    document.querySelectorAll('.select-fixado').forEach(function(s) { s.classList.remove('select-fixado'); });
+    ['equipamento','insumo','fornecedor','frente'].forEach(function(campo) {
+        if (pinsFixados[campo] !== null) {
+            var seletor = campo === 'equipamento' ? '.equipamento-select' : campo === 'insumo' ? '.insumo-select' : campo === 'fornecedor' ? '.fornecedor-select' : '.frente-input';
+            document.querySelectorAll(seletor).forEach(function(s) { s.classList.add('select-fixado'); });
+        }
+    });
+    document.querySelectorAll('.pin-btn').forEach(function(botao) {
+        botao.classList.toggle('pin-ativo', pinsFixados[botao.dataset.campo] !== null);
+    });
+}
+
+function atualizarPainelPins() {
+    var painel = document.getElementById('painelPins');
+    var resumo = document.getElementById('pinsResumo');
+    var ativos = [];
+    ['equipamento','insumo','fornecedor','frente'].forEach(function(campo) {
+        if (pinsFixados[campo] !== null) {
+            ativos.push('<span class="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full text-xs font-semibold">' + rotulosCampos[campo] + ': ' + pinsFixados[campo + '_texto'] + '</span>');
+        }
+    });
+    if (ativos.length > 0) {
+        painel.classList.remove('hidden');
+        resumo.innerHTML = ativos.join(' ');
+    } else {
+        painel.classList.add('hidden');
+        resumo.innerHTML = '';
+    }
+}
+
+function limparTodosPins() {
+    ['equipamento','insumo','fornecedor','frente'].forEach(function(campo) { pinsFixados[campo] = null; pinsFixados[campo + '_texto'] = null; });
+    document.querySelectorAll('.pin-btn').forEach(function(b) { b.classList.remove('pin-ativo'); });
+    aplicarDestaqueFixado();
+    atualizarPainelPins();
+}
+
+function aoMudarEquipamento(selectEquip) {
+    var linha = selectEquip.closest('tr');
+    if (!linha) return;
+    var opt = selectEquip.options[selectEquip.selectedIndex];
+    var hodoInput = linha.querySelector('.hodo-input');
+    var horiInput = linha.querySelector('.hori-input');
+    var infoDiv = linha.querySelector('.info-leitura');
+
+    if (!opt || !opt.value) {
+        if (infoDiv) infoDiv.textContent = '';
+        if (hodoInput) hodoInput.placeholder = 'Km';
+        if (horiInput) horiInput.placeholder = 'Hr';
+        atualizarConferenciaLote();
+        return;
+    }
+
+    var ultHodo = opt.getAttribute('data-ultimo-hodo');
+    var ultHori = opt.getAttribute('data-ultimo-hori');
+    var infoParts = [];
+
+    if (ultHodo) {
+        if (hodoInput) hodoInput.placeholder = 'Km (Últ: ' + Number(ultHodo).toLocaleString('pt-BR') + ')';
+        infoParts.push('Km ant: ' + Number(ultHodo).toLocaleString('pt-BR'));
+    } else {
+        if (hodoInput) hodoInput.placeholder = 'Km';
+    }
+
+    if (ultHori) {
+        if (horiInput) horiInput.placeholder = 'Hr (Últ: ' + Number(ultHori).toLocaleString('pt-BR') + ')';
+        infoParts.push('Hr ant: ' + Number(ultHori).toLocaleString('pt-BR'));
+    } else {
+        if (horiInput) horiInput.placeholder = 'Hr';
+    }
+
+    if (infoDiv) {
+        infoDiv.textContent = infoParts.join(' | ');
+    }
+
+    validarLeituraLinha(hodoInput, 'hodo');
+    validarLeituraLinha(horiInput, 'hori');
+    atualizarConferenciaLote();
+}
+
+function validarLeituraLinha(input, tipo) {
+    if (!input) return;
+    var linha = input.closest('tr');
+    if (!linha) return;
+    var selectEquip = linha.querySelector('.equipamento-select');
+    var opt = selectEquip ? selectEquip.options[selectEquip.selectedIndex] : null;
+    var alertaDiv = input.parentElement.querySelector('.alerta-leitura');
+
+    if (!opt || !opt.value) {
+        input.classList.remove('border-amber-500', 'bg-amber-50/50', 'dark:bg-amber-900/20');
+        if (alertaDiv) alertaDiv.classList.add('hidden');
+        return;
+    }
+
+    var attr = tipo === 'hodo' ? 'data-ultimo-hodo' : 'data-ultimo-hori';
+    var ult = opt.getAttribute(attr);
+    var val = parseFloat(input.value.replace(',', '.'));
+
+    if (!isNaN(val) && ult && !isNaN(parseFloat(ult))) {
+        var ultNum = parseFloat(ult);
+        if (val < ultNum) {
+            input.classList.add('border-amber-500', 'bg-amber-50/50', 'dark:bg-amber-900/20');
+            if (alertaDiv) {
+                alertaDiv.textContent = '⚠️ Menor que anterior (' + ultNum.toLocaleString('pt-BR') + ')';
+                alertaDiv.classList.remove('hidden');
+            }
+            return;
+        }
+    }
+
+    input.classList.remove('border-amber-500', 'bg-amber-50/50', 'dark:bg-amber-900/20');
+    if (alertaDiv) alertaDiv.classList.add('hidden');
+}
+
+function adicionarLinha() {
+    var tabela = document.getElementById('tabelaLote').getElementsByTagName('tbody')[0];
+    var novaLinha = tabela.rows[0].cloneNode(true);
+    novaLinha.querySelectorAll('input').forEach(function(input) {
+        input.value = '';
+        input.classList.remove('border-amber-500', 'bg-amber-50/50', 'dark:bg-amber-900/20');
+    });
+    novaLinha.querySelectorAll('select').forEach(function(select) {
+        select.value = select.classList.contains('insumo-select') ? 'DIESEL S500' : '';
+    });
+    var infoDiv = novaLinha.querySelector('.info-leitura');
+    if (infoDiv) infoDiv.textContent = '';
+    novaLinha.querySelectorAll('.alerta-leitura').forEach(function(a) { a.classList.add('hidden'); a.textContent = ''; });
+
+    tabela.appendChild(novaLinha);
+    atualizarBotoesPins();
+    aplicarPinsFixados(novaLinha);
+    atualizarPostosPorInsumo(novaLinha.querySelector('.insumo-select'));
+    atualizarConferenciaLote();
+}
+
+function aplicarPinsFixados(linha) {
+    if (pinsFixados.equipamento) { 
+        var s = linha.querySelector('select[name="equipamento_id[]"]'); 
+        if (s) { s.value = pinsFixados.equipamento; aoMudarEquipamento(s); }
+    }
+    if (pinsFixados.insumo) { 
+        var s = linha.querySelector('select[name="categoria_insumo[]"]'); 
+        if (s) s.value = pinsFixados.insumo; 
+    }
+    if (pinsFixados.fornecedor) { 
+        var s = linha.querySelector('.fornecedor-select'); 
+        if (s) s.value = pinsFixados.fornecedor; 
+    }
+    if (pinsFixados.frente) { 
+        var inp = linha.querySelector('.frente-input'); 
+        if (inp) inp.value = pinsFixados.frente; 
+    }
+    aplicarDestaqueFixado();
+    atualizarPainelPins();
+}
+
+function aplicarPinsEmTodasAsLinhas() {
+    document.querySelectorAll('#tabelaLote tbody tr').forEach(function(linha) { aplicarPinsFixados(linha); });
+    atualizarConferenciaLote();
+}
+
+function removerLinha(botao) {
+    var tabela = document.getElementById('tabelaLote').getElementsByTagName('tbody')[0];
+    if (tabela.rows.length <= 1) { 
+        alert('É necessário pelo menos uma linha de lançamento.'); 
+        return; 
+    }
+    botao.closest('tr').remove();
+    atualizarBotoesPins();
+    atualizarConferenciaLote();
+}
+
+function atualizarBotoesPins() {
+    var primeiraLinha = document.querySelector('#tabelaLote tbody tr');
+    document.querySelectorAll('#tabelaLote tbody tr').forEach(function(linha) {
+        var ehPrimeira = linha === primeiraLinha;
+        linha.querySelectorAll('.pin-btn').forEach(function(b) { b.classList.toggle('hidden', !ehPrimeira); });
+    });
+}
+
+function normalizarTipoInsumo(valor) {
+    var tipo = (valor || '').trim().toUpperCase();
+    return tipo === 'GASOLINA' ? 'GASOLINA COMUM' : tipo;
+}
+
+function atualizarPostosPorInsumo(selectInsumo) {
+    if (!selectInsumo) return;
+    var tipoInsumo = normalizarTipoInsumo(selectInsumo.value);
+    var obraId     = document.getElementById('obraSelect').value;
+    var linha      = selectInsumo.closest('tr');
+    var selectForn = linha ? linha.querySelector('.fornecedor-select') : null;
+    if (!selectForn) return;
+
+    selectForn.querySelectorAll('option').forEach(function(option) {
+        if (!option.value) { option.style.display = ''; return; }
+        var optObra   = option.getAttribute('data-obra') || '';
+        var optInsumo = normalizarTipoInsumo(option.getAttribute('data-tipo-insumo'));
+        var passaObra   = obraId === '' || optObra === '' || optObra === obraId;
+        var passaInsumo = optInsumo === tipoInsumo;
+        option.style.display = (passaObra && passaInsumo) ? '' : 'none';
+    });
+
+    var atual = selectForn.options[selectForn.selectedIndex];
+    if (!atual || atual.style.display === 'none') { selectForn.value = ''; }
+
+    if (pinsFixados.fornecedor) {
+        var disponivel = Array.from(selectForn.options).some(function(o) {
+            return o.value === pinsFixados.fornecedor && o.style.display !== 'none';
+        });
+        if (!disponivel) { pinsFixados.fornecedor = null; pinsFixados.fornecedor_texto = null; }
+    }
+    if (pinsFixados.fornecedor) { selectForn.value = pinsFixados.fornecedor; }
+
+    aplicarDestaqueFixado();
+    atualizarPainelPins();
+}
+
+function atualizarFornecedoresPorObra() {
+    document.querySelectorAll('.insumo-select').forEach(atualizarPostosPorInsumo);
+    atualizarConferenciaLote();
+}
+
+function atualizarConferenciaLote() {
+    var linhas = document.querySelectorAll('#tabelaLote tbody tr');
+    var totalLinhasPreenchidas = 0;
+    var volumeTotal = 0;
+    var equips = new Set();
+    var temAvisos = false;
+    var msgAviso = '';
+
+    linhas.forEach(function(tr) {
+        var selEquip = tr.querySelector('.equipamento-select');
+        var selForn = tr.querySelector('.fornecedor-select');
+        var qtdInput = tr.querySelector('.qtd-input');
+        var equipVal = selEquip ? selEquip.value : '';
+        var fornVal = selForn ? selForn.value : '';
+        var qtdStr = qtdInput ? qtdInput.value.replace(',', '.') : '';
+        var qtdVal = parseFloat(qtdStr);
+
+        var temConteudo = equipVal || fornVal || qtdStr;
+        if (temConteudo) {
+            totalLinhasPreenchidas++;
+            if (equipVal) equips.add(equipVal);
+            if (!isNaN(qtdVal) && qtdVal > 0) {
+                volumeTotal += qtdVal;
+            } else if (qtdStr && qtdVal <= 0) {
+                temAvisos = true;
+                msgAviso = 'Quantidade zerada ou negativa detectada';
+            }
+            if (!equipVal || !fornVal || !qtdStr) {
+                temAvisos = true;
+                msgAviso = 'Campos obrigatórios pendentes em linha ativa';
+            }
+        }
+    });
+
+    document.getElementById('confTotalLinhas').textContent = totalLinhasPreenchidas;
+    document.getElementById('confTotalLitros').textContent = volumeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L';
+    document.getElementById('confTotalEquips').textContent = equips.size;
+
+    var statusDiv = document.getElementById('confStatusAlerta');
+    if (totalLinhasPreenchidas === 0) {
+        statusDiv.className = 'text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1.5';
+        statusDiv.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span> Aguardando dados...';
+    } else if (temAvisos) {
+        statusDiv.className = 'text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 flex items-center gap-1.5';
+        statusDiv.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span> ' + msgAviso;
+    } else {
+        statusDiv.className = 'text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 flex items-center gap-1.5';
+        statusDiv.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Pronto para gravar (' + totalLinhasPreenchidas + ' itens conferidos)';
+    }
+}
+
+// Inicializações
+atualizarBotoesPins();
+atualizarFornecedoresPorObra();
+atualizarConferenciaLote();
+</script>
+
+{% endblock %}

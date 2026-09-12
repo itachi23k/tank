@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de Obras - T.A.N.K{% endblock %}
+
+{% block content %}
+<div x-data="{ openModal: false, editMode: false, obraEdit: {} }" class="space-y-6">
+    
+    <!-- Cabeçalho -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-700 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Gestão de Obras</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Cadastre e gerencie as obras do sistema</p>
+        </div>
+        <button @click="openModal = true; editMode = false; obraEdit = {}" 
+                class="mt-3 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Nova Obra
+        </button>
+    </div>
+
+    <!-- Modal de Cadastro/Edição -->
+    <div x-show="openModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 border border-slate-200 dark:border-slate-700" @click.away="openModal = false">
+            
+            <!-- Cabeçalho do Modal -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white">
+                    <span x-text="editMode ? 'Editar Obra' : 'Cadastrar Nova Obra'"></span>
+                </h3>
+                <button @click="openModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Formulário -->
+            <form action="{{ url_for('cadastros.obras') }}" method="POST" class="p-6 space-y-5">
+                
+                <!-- Campo oculto para edição -->
+                <input type="hidden" name="obra_id" x-model="obraEdit.id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Código -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Código da Obra <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="codigo" required x-model="obraEdit.codigo"
+                               placeholder="Ex: OB-001, BR-101-L3"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 uppercase placeholder:text-slate-400">
+                        <p class="text-xs text-slate-500 mt-1">Código único para identificar a obra</p>
+                    </div>
+                    
+                    <!-- Nome -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nome da Obra <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="nome" required x-model="obraEdit.nome"
+                               placeholder="Ex: Rodovia BR-101 - Lote 3"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 uppercase placeholder:text-slate-400">
+                    </div>
+                    
+                    <!-- Local -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Localização
+                        </label>
+                        <input type="text" name="local" x-model="obraEdit.local"
+                               placeholder="Ex: Km 245 - Rodovia BR-101 - Rio de Janeiro/RJ"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 uppercase placeholder:text-slate-400">
+                    </div>
+                    
+                    <!-- Responsável -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Responsável Técnico
+                        </label>
+                        <input type="text" name="responsavel" x-model="obraEdit.responsavel"
+                               placeholder="Ex: Eng. Carlos Silva"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 uppercase placeholder:text-slate-400">
+                    </div>
+                    
+                    <!-- Data de Início -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Data de Início
+                        </label>
+                        <input type="date" name="data_inicio" x-model="obraEdit.data_inicio"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                
+                <!-- Informações adicionais -->
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-amber-500 text-lg">💡</span>
+                        <div>
+                            <h4 class="text-sm font-bold text-amber-800 dark:text-amber-200">Dica</h4>
+                            <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                Cada obra terá seus próprios tanques/comboios, fornecedores e relatórios independentes.
+                                Os equipamentos podem transitar entre diferentes obras.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botões -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <button type="button" @click="openModal = false"
+                            class="px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow transition">
+                        <span x-text="editMode ? 'Atualizar Obra' : 'Cadastrar Obra'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Obras -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        
+        {% if obras %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold uppercase">
+                    <tr>
+                        <th class="px-6 py-3 text-left tracking-wider">Código</th>
+                        <th class="px-6 py-3 text-left tracking-wider">Nome</th>
+                        <th class="px-6 py-3 text-left tracking-wider">Local</th>
+                        <th class="px-6 py-3 text-left tracking-wider">Responsável</th>
+                        <th class="px-6 py-3 text-center tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-center tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for obra in obras %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <!-- Código -->
+                        <td class="px-6 py-4">
+                            <span class="font-bold text-blue-600 dark:text-blue-400">{{ obra.codigo }}</span>
+                        </td>
+                        
+                        <!-- Nome -->
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-800 dark:text-white">{{ obra.nome }}</div>
+                            {% if obra.data_inicio %}
+                            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Início: {{ obra.data_inicio.strftime('%d/%m/%Y') }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Local -->
+                        <td class="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">
+                            {{ obra.local or '-' }}
+                        </td>
+                        
+                        <!-- Responsável -->
+                        <td class="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">
+                            {{ obra.responsavel or '-' }}
+                        </td>
+                        
+                        <!-- Status -->
+                        <td class="px-6 py-4 text-center">
+                            <form action="{{ url_for('cadastros.toggle_obra', id=obra.id) }}" method="POST" class="inline">
+                                <button type="submit" 
+                                        class="px-3 py-1 rounded-full text-xs font-bold transition
+                                               {% if obra.ativa %}
+                                               bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-200
+                                               {% else %}
+                                               bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400 hover:bg-red-200
+                                               {% endif %}">
+                                    {{ 'ATIVA' if obra.ativa else 'INATIVA' }}
+                                </button>
+                            </form>
+                        </td>
+                        
+                        <!-- Ações -->
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- Botão Editar -->
+                                <button @click="openModal = true; editMode = true; obraEdit = {
+                                    id: '{{ obra.id }}',
+                                    codigo: '{{ obra.codigo }}',
+                                    nome: '{{ obra.nome }}',
+                                    local: '{{ obra.local or '' }}',
+                                    responsavel: '{{ obra.responsavel or '' }}',
+                                    data_inicio: '{{ obra.data_inicio or '' }}'
+                                }" 
+                                class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition p-1"
+                                title="Editar Obra">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                
+                                <!-- Info rápida -->
+                                <div class="relative group">
+                                    <span class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition p-1 cursor-help">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                    </span>
+                                    <!-- Tooltip -->
+                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-xs rounded-lg py-2 px-3 opacity-0 group-hover:opacity-100 transition pointer-events-none z-50">
+                                        <p><strong>Criado em:</strong> {{ obra.data_criacao.strftime('%d/%m/%Y %H:%M') if obra.data_criacao else 'N/D' }}</p>
+                                        <p><strong>ID:</strong> {{ obra.id }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Rodapé da Tabela -->
+        <div class="px-6 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+            <span>Total de obras: <strong>{{ obras|length }}</strong></span>
+            <span>
+                Ativas: <strong class="text-emerald-600">{{ obras|selectattr('ativa', 'equalto', true)|list|length }}</strong> | 
+                Inativas: <strong class="text-red-600">{{ obras|selectattr('ativa', 'equalto', false)|list|length }}</strong>
+            </span>
+        </div>
+        
+        {% else %}
+        <!-- Estado Vazio -->
+        <div class="text-center py-12 px-6">
+            <div class="text-6xl mb-4">🏗️</div>
+            <h3 class="text-lg font-bold text-slate-700 dark:text-slate-300 mb-2">Nenhuma obra cadastrada</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
+                Cadastre suas obras para começar a controlar os abastecimentos, tanques e relatórios separadamente.
+            </p>
+            <button @click="openModal = true; editMode = false; obraEdit = {}"
+                    class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold shadow transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Cadastrar Primeira Obra
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Cards Informativos -->
+    {% if obras %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        {% for obra in obras %}
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition
+                    {% if not obra.ativa %}opacity-60{% endif %}">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h4 class="font-bold text-slate-800 dark:text-white text-sm">{{ obra.nome }}</h4>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ obra.codigo }}</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold
+                           {% if obra.ativa %}
+                           bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400
+                           {% else %}
+                           bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400
+                           {% endif %}">
+                    {{ 'ATIVA' if obra.ativa else 'INATIVA' }}
+                </span>
+            </div>
+            
+            <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                {% if obra.local %}
+                <div class="flex items-start gap-2">
+                    <span>📍</span>
+                    <span>{{ obra.local }}</span>
+                </div>
+                {% endif %}
+                {% if obra.responsavel %}
+                <div class="flex items-start gap-2">
+                    <span>👷</span>
+                    <span>{{ obra.responsavel }}</span>
+                </div>
+                {% endif %}
+                {% if obra.data_inicio %}
+                <div class="flex items-start gap-2">
+                    <span>📅</span>
+                    <span>Início: {{ obra.data_inicio.strftime('%d/%m/%Y') }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Transferência entre Bases - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6" 
+     x-data="{ 
+         openModal: false, 
+         editMode: false, 
+         transfEdit: {},
+         abrirNovo() {
+             const now = new Date();
+             const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+             this.transfEdit = { data_hora: localISO, tipo_combustivel: 'DIESEL S10' };
+             this.editMode = false;
+             this.openModal = true;
+         },
+         aoMudarOrigem(event) {
+             const opt = event.target.options[event.target.selectedIndex];
+             if (opt) {
+                 const comb = opt.getAttribute('data-combustivel');
+                 if (comb) {
+                     this.transfEdit.tipo_combustivel = comb;
+                 }
+                 if (this.transfEdit.destino_id === this.transfEdit.origem_id) {
+                     this.transfEdit.destino_id = '';
+                 }
+             }
+         }
+     }"
+     x-init="
+         const params = new URLSearchParams(window.location.search);
+         const editarId = params.get('editar');
+         if (editarId) {
+             fetch('/api/transferencia/' + editarId)
+                 .then(r => r.json())
+                 .then(data => {
+                     transfEdit = data;
+                     editMode = true;
+                     openModal = true;
+                 });
+         }
+     ">
+    
+    <!-- Cabeçalho -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-700 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Transbordo de Combustível</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Registre e acompanhe a movimentação entre tanques e comboios com validação de compatibilidade</p>
+        </div>
+        <button @click="abrirNovo()" 
+                class="mt-3 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Novo Transbordo
+        </button>
+    </div>
+
+    <!-- Modal de Cadastro/Edição -->
+    <div x-show="openModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 border border-slate-200 dark:border-slate-700" @click.away="openModal = false">
+            
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white">
+                    <span x-text="editMode ? 'Editar Transbordo' : 'Novo Transbordo'"></span>
+                </h3>
+                <button @click="openModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form action="{{ url_for('operacoes.transferencia') }}" method="POST" class="p-6 space-y-4">
+                <input type="hidden" name="transferencia_id" x-model="transfEdit.id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Base Origem (Saída) *</label>
+                        <select name="origem_id" required x-model="transfEdit.origem_id" @change="aoMudarOrigem($event)"
+                                class="w-full px-3 py-2 border rounded-md dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                            <option value="">Selecione o Tanque/Comboio</option>
+                            {% for p in postos_internos %}
+                                <option value="{{ p.id }}" data-combustivel="{{ p.tipo_combustivel or 'DIESEL S10' }}">
+                                    {{ p.nome }} ({{ p.tipo_combustivel or 'DIESEL S10' }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Base Destino (Entrada) *</label>
+                        <select name="destino_id" required x-model="transfEdit.destino_id"
+                                class="w-full px-3 py-2 border rounded-md dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                            <option value="">Selecione o Comboio/Tanque</option>
+                            {% for p in postos_internos %}
+                                <option value="{{ p.id }}" data-combustivel="{{ p.tipo_combustivel or 'DIESEL S10' }}">
+                                    {{ p.nome }} ({{ p.tipo_combustivel or 'DIESEL S10' }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div x-show="transfEdit.origem_id && transfEdit.destino_id && transfEdit.origem_id === transfEdit.destino_id" 
+                     class="p-2.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold">
+                    ⚠️ A base de origem e destino não podem ser as mesmas.
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data / Hora *</label>
+                        <input type="datetime-local" name="data_hora" required x-model="transfEdit.data_hora"
+                                class="w-full px-3 py-2 border rounded-md dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Volume (L) *</label>
+                        <input type="number" step="0.01" min="0.01" name="litros" required x-model="transfEdit.litros" placeholder="Ex: 5000"
+                                class="w-full px-3 py-2 border rounded-md dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de Combustível</label>
+                        <select name="tipo_combustivel" x-model="transfEdit.tipo_combustivel"
+                                class="w-full px-3 py-2 border rounded-md dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 font-semibold">
+                            <option value="DIESEL S10">Diesel S10</option>
+                            <option value="DIESEL S500">Diesel S500</option>
+                            <option value="GASOLINA COMUM">Gasolina Comum</option>
+                            <option value="ARLA 32">ARLA 32</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Observação</label>
+                    <input type="text" name="observacao" x-model="transfEdit.observacao" placeholder="Ex: Transbordo para Comboio BRAVO"
+                           class="w-full px-3 py-2 border rounded-md dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" @click="openModal = false"
+                            class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            :disabled="transfEdit.origem_id && transfEdit.destino_id && transfEdit.origem_id === transfEdit.destino_id"
+                            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2 px-6 rounded-lg transition">
+                        <span x-text="editMode ? 'Atualizar' : 'Confirmar Transferência'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Histórico -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 class="font-bold text-slate-700 dark:text-slate-300">Histórico de Transbordos</h3>
+        </div>
+        
+        {% if transferencias %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold uppercase">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Data/Hora</th>
+                        <th class="px-4 py-3 text-left">Origem</th>
+                        <th class="px-4 py-3 text-left">Destino</th>
+                        <th class="px-4 py-3 text-right">Litros</th>
+                        <th class="px-4 py-3 text-left">Tipo</th>
+                        <th class="px-4 py-3 text-left">Obs</th>
+                        <th class="px-4 py-3 text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for t in transferencias %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-3 whitespace-nowrap">{{ t.data_hora.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">{{ t.origem.nome }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">{{ t.destino.nome }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right font-bold text-blue-600">{{ "%.2f"|format(t.litros) }} L</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                {{ t.tipo_combustivel }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 max-w-xs truncate text-slate-500">{{ t.observacao or '-' }}</td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- Botão Editar -->
+                                <button @click="openModal = true; editMode = true; transfEdit = {
+                                    id: '{{ t.id }}',
+                                    data_hora: '{{ t.data_hora.strftime('%Y-%m-%dT%H:%M') }}',
+                                    origem_id: '{{ t.origem_id }}',
+                                    destino_id: '{{ t.destino_id }}',
+                                    litros: '{{ t.litros }}',
+                                    tipo_combustivel: '{{ t.tipo_combustivel }}',
+                                    observacao: '{{ t.observacao or '' }}'
+                                }" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition p-1" title="Editar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                                <!-- Botão Excluir -->
+                                <form action="{{ url_for('operacoes.excluir_transferencia', id=t.id) }}" method="POST" class="inline"
+                                      onsubmit="return confirm('Tem certeza que deseja estornar este transbordo?')">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition p-1" title="Excluir">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-10 text-slate-500">
+            Nenhum transbordo registrado ainda.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

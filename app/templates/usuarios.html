@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de Usuários - T.A.N.K{% endblock %}
+
+{% block content %}
+<div x-data="{ openModal: false, editMode: false, usuarioEdit: {} }" class="space-y-6">
+    
+    <!-- Cabeçalho -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-700 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Gestão de Usuários</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Gerencie os acessos e permissões dos operadores do sistema</p>
+        </div>
+        <button @click="openModal = true; editMode = false; usuarioEdit = {}" 
+                class="mt-3 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Novo Usuário
+        </button>
+    </div>
+
+    <!-- Modal de Cadastro/Edição -->
+    <div x-show="openModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto" @click.away="openModal = false">
+            
+            <!-- Cabeçalho do Modal -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white">
+                    <span x-text="editMode ? 'Editar Usuário' : 'Cadastrar Novo Usuário'"></span>
+                </h3>
+                <button @click="openModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Formulário -->
+            <form action="{{ url_for('cadastros.usuarios') }}" method="POST" class="p-6 space-y-5">
+                
+                <!-- Campo oculto para edição -->
+                <input type="hidden" name="usuario_id" x-model="usuarioEdit.id">
+                
+                <!-- Dados Básicos -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Nome -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nome Completo <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="nome" required x-model="usuarioEdit.nome"
+                               placeholder="Ex: João Silva"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 uppercase placeholder:text-slate-400">
+                    </div>
+                    
+                    <!-- Email -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            E-mail <span class="text-red-500">*</span>
+                        </label>
+                        <input type="email" name="novo_email" required x-model="usuarioEdit.email"
+                               placeholder="Ex: joao@obra.com.br"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 lowercase placeholder:text-slate-400">
+                    </div>
+                    
+                    <!-- Senha -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Senha <span x-text="editMode ? '(deixe em branco para manter)' : '*'"></span>
+                        </label>
+                        <input type="password" name="nova_senha" x-bind:required="!editMode"
+                               placeholder="Mínimo 6 caracteres"
+                               class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400">
+                    </div>
+                    
+                    <!-- Nível de Acesso -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nível de Acesso <span class="text-red-500">*</span>
+                        </label>
+                        <select name="papel" required x-model="usuarioEdit.nivel_acesso"
+                                class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                            <option value="administrador">👑 Administrador (Acesso Total)</option>
+                            <option value="lancador" selected>✏️ Lançador (Registra Abastecimentos)</option>
+                            <option value="leitor">👁️ Leitor (Apenas Consulta)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Configurações de Acesso a Obras -->
+                <div class="border-t border-slate-200 dark:border-slate-700 pt-5">
+                    <h4 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+                        <span>🏗️</span> Configurações de Acesso às Obras
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Acesso Global -->
+                        <div>
+                            <label class="flex items-center gap-3 p-4 border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition"
+                                   x-data="{ global: false }" x-init="global = usuarioEdit.acesso_global === 'true' || usuarioEdit.acesso_global === true">
+                                <input type="checkbox" name="acesso_global" value="true" 
+                                       x-model="global"
+                                       class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                                <div>
+                                    <div class="font-semibold text-sm text-slate-700 dark:text-slate-200">🌐 Acesso Global</div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                        Visualiza e gerencia <strong>todas as obras</strong> do sistema
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <!-- Obra Padrão -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                🏗️ Obra Padrão (Principal)
+                            </label>
+                            <select name="obra_padrao_id" x-model="usuarioEdit.obra_padrao_id"
+                                    class="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                                <option value="">-- Nenhuma (Acesso Global) --</option>
+                                {% for obra in obras_lista %}
+                                <option value="{{ obra.id }}">{{ obra.codigo }} - {{ obra.nome[:40] }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="text-xs text-slate-500 mt-1">
+                                Obra principal que o usuário irá visualizar e operar
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dicas de Permissões -->
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-blue-500 text-lg">ℹ️</span>
+                        <div>
+                            <h4 class="text-sm font-bold text-blue-800 dark:text-blue-200">Níveis de Permissão</h4>
+                            <div class="text-xs text-blue-700 dark:text-blue-300 mt-2 space-y-1">
+                                <p><strong>👑 Administrador:</strong> Acesso total. Gerencia obras, usuários, frota e relatórios.</p>
+                                <p><strong>✏️ Lançador:</strong> Registra abastecimentos e transbordos. Acesso apenas à sua obra.</p>
+                                <p><strong>👁️ Leitor:</strong> Apenas consulta relatórios e dashboard. Não faz lançamentos.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botões -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <button type="button" @click="openModal = false"
+                            class="px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition font-medium">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow transition">
+                        <span x-text="editMode ? 'Atualizar Usuário' : 'Cadastrar Usuário'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Usuários -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        
+        {% if usuarios %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold uppercase">
+                    <tr>
+                        <th class="px-6 py-3 text-left tracking-wider">Usuário</th>
+                        <th class="px-6 py-3 text-left tracking-wider">Nível</th>
+                        <th class="px-6 py-3 text-left tracking-wider">Obra</th>
+                        <th class="px-6 py-3 text-center tracking-wider">Acesso</th>
+                        <th class="px-6 py-3 text-center tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-center tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for user in usuarios %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        
+                        <!-- Usuário -->
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xs">
+                                    {{ user.nome[:2].upper() }}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-800 dark:text-white">{{ user.nome }}</div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400">{{ user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        
+                        <!-- Nível de Acesso -->
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                       {% if user.nivel_acesso == 'administrador' %}
+                                       bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400
+                                       {% elif user.nivel_acesso == 'lancador' %}
+                                       bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400
+                                       {% else %}
+                                       bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-400
+                                       {% endif %}">
+                                {% if user.nivel_acesso == 'administrador' %}👑{% endif %}
+                                {% if user.nivel_acesso == 'lancador' %}✏️{% endif %}
+                                {% if user.nivel_acesso == 'leitor' %}👁️{% endif %}
+                                {{ user.nivel_acesso | upper }}
+                            </span>
+                        </td>
+                        
+                        <!-- Obra -->
+                        <td class="px-6 py-4">
+                            {% if user.acesso_global %}
+                            <span class="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded font-bold">
+                                🌐 GLOBAL
+                            </span>
+                            {% elif user.obra_padrao %}
+                            <div class="flex items-center gap-1">
+                                <span class="text-amber-500 text-xs">🏗️</span>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                        {{ user.obra_padrao.codigo }}
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 dark:text-slate-400">
+                                        {{ user.obra_padrao.nome[:25] }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-slate-400 italic">Não definido</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Tipo de Acesso -->
+                        <td class="px-6 py-4 text-center">
+                            {% if user.acesso_global %}
+                            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">🌐 Global</span>
+                            {% else %}
+                            <span class="text-xs text-amber-600 dark:text-amber-400 font-bold">🏗️ Restrito</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Status -->
+                        <td class="px-6 py-4 text-center">
+                            {% if user.id != current_user.id %}
+                            <form action="{{ url_for('cadastros.toggle_usuario', id=user.id) }}" method="POST" class="inline">
+                                <button type="submit" 
+                                        class="px-3 py-1 rounded-full text-xs font-bold transition
+                                               {% if user.ativo %}
+                                               bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-200
+                                               {% else %}
+                                               bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400 hover:bg-red-200
+                                               {% endif %}">
+                                    {{ 'ATIVO' if user.ativo else 'INATIVO' }}
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400">
+                                ATIVO (Você)
+                            </span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Ações -->
+                        <td class="px-6 py-4 text-center">
+                            {% if user.id != current_user.id %}
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- Botão Editar -->
+                                <button @click="openModal = true; editMode = true; usuarioEdit = {
+                                    id: '{{ user.id }}',
+                                    nome: '{{ user.nome }}',
+                                    email: '{{ user.email }}',
+                                    nivel_acesso: '{{ user.nivel_acesso }}',
+                                    acesso_global: {{ 'true' if user.acesso_global else 'false' }},
+                                    obra_padrao_id: '{{ user.obra_padrao_id or '' }}'
+                                }" 
+                                class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition p-1"
+                                title="Editar Usuário">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                
+                                <!-- Botão Excluir -->
+                                <form action="{{ url_for('cadastros.excluir_usuario', id=user.id) }}" method="POST" class="inline"
+                                      onsubmit="return confirm('Tem certeza que deseja excluir este usuário?\nSe houver registros vinculados, ele será apenas inativado.');">
+                                    <button type="submit" 
+                                            class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition p-1"
+                                            title="Excluir Usuário">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-slate-400">Usuário atual</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Rodapé da Tabela -->
+        <div class="px-6 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+            <span>Total: <strong>{{ usuarios|length }}</strong> usuário(s)</span>
+            <span>
+                👑 Admin: <strong>{{ usuarios|selectattr('nivel_acesso', 'equalto', 'administrador')|list|length }}</strong> | 
+                ✏️ Lançadores: <strong>{{ usuarios|selectattr('nivel_acesso', 'equalto', 'lancador')|list|length }}</strong> |
+                👁️ Leitores: <strong>{{ usuarios|selectattr('nivel_acesso', 'equalto', 'leitor')|list|length }}</strong>
+            </span>
+        </div>
+        
+        {% else %}
+        <!-- Estado Vazio -->
+        <div class="text-center py-12 px-6">
+            <div class="text-6xl mb-4">👥</div>
+            <h3 class="text-lg font-bold text-slate-700 dark:text-slate-300 mb-2">Nenhum usuário cadastrado</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
+                Cadastre os operadores do sistema definindo seus níveis de acesso e obras permitidas.
+            </p>
+            <button @click="openModal = true; editMode = false; usuarioEdit = {}"
+                    class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold shadow transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Cadastrar Primeiro Usuário
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

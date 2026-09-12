@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Login - T.A.N.K Gestão de Frota{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4">
+    <div class="w-full max-w-md">
+        
+        <!-- Card Principal com Animação de Entrada -->
+        <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 transform transition-all duration-500 hover:shadow-2xl animate-fade-in-up">
+            
+            <!-- Logo Animada -->
+            <div class="text-center mb-8">
+                <div class="inline-block relative group">
+                    <div class="bg-gradient-to-br from-blue-600 to-blue-800 dark:from-blue-500 dark:to-blue-700 text-white font-extrabold text-3xl px-6 py-3 rounded-xl mb-3 shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:rotate-1">
+                        <span class="relative z-10">T.A.N.K</span>
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-300 dark:to-blue-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
+                    </div>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-4 animate-fade-in">Acesso ao Sistema</h2>
+                <p class="text-slate-500 dark:text-slate-400 text-sm mt-2 animate-fade-in animation-delay-200">Gestão Integrada de Combustíveis e Frotas</p>
+            </div>
+
+            <!-- Indicador de Carregamento -->
+            <div id="loadingOverlay" class="hidden absolute inset-0 bg-white/80 dark:bg-slate-800/80 rounded-2xl flex items-center justify-center z-50">
+                <div class="text-center">
+                    <div class="inline-block relative">
+                        <div class="w-16 h-16 border-4 border-blue-200 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
+                        <svg class="absolute inset-0 w-16 h-16 text-blue-600 dark:text-blue-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <p class="mt-4 text-slate-600 dark:text-slate-300 font-medium animate-pulse">Autenticando...</p>
+                </div>
+            </div>
+
+            <!-- Formulário de Login com ID para JavaScript -->
+            <form id="loginForm" action="{{ url_for('auth.login') }}" method="POST" autocomplete="off" class="space-y-5 relative">
+                
+                <!-- Campo Email -->
+                <div class="animate-fade-in animation-delay-300">
+                    <label for="email" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        <svg class="inline-block w-4 h-4 mr-1 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                        E-mail Corporativo
+                    </label>
+                    <div class="relative group">
+                        <input type="email" id="email" name="email" autocomplete="off" required 
+                               placeholder="seu.email@mail.com.br"
+                               autocomplete="email"
+                               class="w-full px-4 py-3 pl-10 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 outline-none transition-all duration-300 bg-slate-50 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 hover:border-blue-300 dark:hover:border-blue-600">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500 transition-colors duration-300 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Campo Senha -->
+                <div class="animate-fade-in animation-delay-400">
+                    <label for="senha" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        <svg class="inline-block w-4 h-4 mr-1 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        Senha de Acesso
+                    </label>
+                    <div class="relative group">
+                        <input type="password" id="senha" name="senha" autocomplete="off" required 
+                               placeholder="Digite sua senha"
+                               autocomplete="current-password"
+                               class="w-full px-4 py-3 pl-10 pr-12 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 outline-none transition-all duration-300 bg-slate-50 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 hover:border-blue-300 dark:hover:border-blue-600">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500 transition-colors duration-300 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                        </svg>
+                        
+                        <!-- Botão Mostrar/Esconder Senha -->
+                        <button type="button" id="togglePassword" 
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 focus:outline-none">
+                            <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Botão de Login com Efeito -->
+                <div class="animate-fade-in animation-delay-500 pt-2">
+                    <button type="submit" id="loginButton"
+                            class="w-full relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 hover:from-blue-700 hover:to-blue-800 dark:hover:from-blue-600 dark:hover:to-blue-700 text-white font-semibold py-3.5 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 group">
+                        <span class="relative z-10 flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                            </svg>
+                            Entrar no Painel
+                        </span>
+                        <div class="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Rodapé do Card -->
+            <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 text-center animate-fade-in animation-delay-600">
+                <div class="flex items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    Acesso restrito à equipe autorizada
+                </div>
+                <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Idealizado e Construído por Cassio Junio © {{ now.year if now else '2026' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Animações CSS Customizadas -->
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
+    
+    .animate-fade-in-up {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.8s ease-out;
+    }
+    
+    .animation-delay-200 {
+        animation-delay: 0.2s;
+    }
+    
+    .animation-delay-300 {
+        animation-delay: 0.3s;
+    }
+    
+    .animation-delay-400 {
+        animation-delay: 0.4s;
+    }
+    
+    .animation-delay-500 {
+        animation-delay: 0.5s;
+    }
+    
+    .animation-delay-600 {
+        animation-delay: 0.6s;
+    }
+    
+    .animate-shake {
+        animation: shake 0.5s ease-in-out;
+    }
+    
+    /* Efeito de brilho nos inputs */
+    input:focus {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Transição suave para o card */
+    .hover\:shadow-2xl:hover {
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+</style>
+
+<!-- JavaScript para Funcionalidades Interativas -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        const loginForm = document.getElementById('loginForm');
+        const loginButton = document.getElementById('loginButton');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('senha');
+        const card = document.querySelector('.bg-white') || document.querySelector('.animate-fade-in-up');
+        
+        // Mostrar/Esconder Senha
+        if (togglePassword && passwordInput) {
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // Alternar ícone do olho
+                const eyeIcon = document.getElementById('eyeIcon');
+                if (eyeIcon) {
+                    if (type === 'text') {
+                        eyeIcon.innerHTML = `
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243a9.97 9.97 0 01-4.243-4.243M21 21l-4.5-4.5"></path>
+                        `;
+                    } else {
+                        eyeIcon.innerHTML = `
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        `;
+                    }
+                }
+            });
+        }
+        
+        // Animação de Loading ao Submeter
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                const emailEl = document.getElementById('email');
+                const senhaEl = document.getElementById('senha');
+                const email = emailEl ? emailEl.value.trim() : '';
+                const senha = senhaEl ? senhaEl.value.trim() : '';
+                
+                // Validação básica
+                if (!email || !senha) {
+                    e.preventDefault();
+                    if (card) {
+                        card.classList.add('animate-shake');
+                        setTimeout(() => card.classList.remove('animate-shake'), 500);
+                    }
+                    return;
+                }
+                
+                // Mostrar loading
+                if (loginButton) loginButton.disabled = true;
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+            });
+        }
+        
+        // Efeito de foco nos inputs
+        const inputs = document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                if (this.parentElement) this.parentElement.classList.add('scale-105');
+            });
+            
+            input.addEventListener('blur', function() {
+                if (this.parentElement) this.parentElement.classList.remove('scale-105');
+            });
+        });
+        
+        // Remover animações iniciais após carregar
+        setTimeout(() => {
+            document.querySelectorAll('.animate-fade-in, .animate-fade-in-up').forEach(el => {
+                el.style.animation = 'none';
+            });
+        }, 2000);
+    } catch (err) {
+        console.warn('Login script notice:', err);
+    }
+});
+</script>
+{% endblock %}

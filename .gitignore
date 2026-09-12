@@ -1,0 +1,18 @@
+# Ambientes Virtuais (Não enviar para o GitHub)
+venv/
+ENV/
+env/
+
+# Arquivos do Python compilados
+__pycache__/
+*.pyc
+
+# Banco de dados SQLite local de testes
+#*.db
+#*.sqlite3
+
+# Arquivos de ambiente com senhas
+.env
+
+# Configurações locais do VS Code
+.vscode/

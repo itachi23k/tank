@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Média de Consumo por Frente de Serviço - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- CABEÇALHO DA PÁGINA -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-1">
+                <a href="{{ url_for('dashboard.index') }}" class="hover:underline">Início</a>
+                <span>/</span>
+                <span>Relatórios</span>
+                <span>/</span>
+                <span class="text-slate-800 dark:text-slate-200 font-semibold">Média de Consumo</span>
+            </div>
+            <h1 class="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+                <span>📊 Média de Consumo por Frente de Serviço</span>
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Acompanhe o consumo total, médias diárias e evolução do combustível direcionado a cada frente operacional.
+            </p>
+        </div>
+
+        <!-- Ações / Exportação -->
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('cadastros.frentes_servico', obra_id=obra_id_sel) }}" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold rounded-lg text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-1.5">
+                <span>🚜</span> Cadastrar & Alocar Frentes
+            </a>
+            <button onclick="window.print()" class="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-sm flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                Imprimir
+            </button>
+        </div>
+    </div>
+
+    <!-- PAINEL DE FILTROS -->
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <form method="GET" action="{{ url_for('relatorios.media_consumo') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            
+            <!-- Obra -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Obra / Unidade</label>
+                <select name="obra_id" class="w-full text-sm px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <option value="">-- Todas as Obras Permitidas --</option>
+                    {% for o in obras_lista %}
+                        <option value="{{ o.id }}" {% if obra_id_sel == o.id|string %}selected{% endif %}>{{ o.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Data Início -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Data Início</label>
+                <input type="date" name="data_inicio" value="{{ data_inicio }}" class="w-full text-sm px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <!-- Data Fim -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Data Fim</label>
+                <input type="date" name="data_fim" value="{{ data_fim }}" class="w-full text-sm px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <!-- Frente de Serviço -->
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Frente de Serviço</label>
+                <select name="frente_servico" class="w-full text-sm px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <option value="">-- Todas as Frentes --</option>
+                    {% for f in frentes_disponiveis %}
+                        <option value="{{ f }}" {% if frente_filtro == f %}selected{% endif %}>{{ f }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Botões -->
+            <div class="flex items-center gap-2">
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    Filtrar
+                </button>
+                <a href="{{ url_for('relatorios.media_consumo') }}" class="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition" title="Limpar Filtros">
+                    ↺
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- CARDS DE METRICAS (KPIS) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        <!-- Total de Volume -->
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white shadow-md relative overflow-hidden">
+            <div class="text-xs font-bold uppercase tracking-wider opacity-80">Volume Total</div>
+            <div class="text-2xl font-black mt-1">{{ "%.2f"|format(total_volume) }} <span class="text-sm font-normal">L</span></div>
+            <div class="text-xs opacity-90 mt-2 font-medium">📋 {{ total_registros }} abastecimentos</div>
+            <svg class="w-16 h-16 absolute -right-3 -bottom-3 opacity-15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+        </div>
+
+        <!-- Média Diária Geral -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Média Diária</div>
+            <div class="text-2xl font-black text-slate-800 dark:text-white mt-1">{{ "%.2f"|format(media_diaria) }} <span class="text-sm font-normal text-slate-500">L/dia</span></div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">📅 Período de {{ dias_periodo }} dias</div>
+        </div>
+
+        <!-- Frentes Ativas -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Frentes Mapeadas</div>
+            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{{ frentes_lista|length }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">🏗️ Com alocação registrada</div>
+        </div>
+
+        <!-- Máquinas Atendidas -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Frota Atendida</div>
+            <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{{ total_equipamentos_unicos }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">🚜 Equipamentos distintos</div>
+        </div>
+
+        <!-- Maior Frente de Consumo -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Maior Consumo</div>
+            <div class="text-lg font-black text-purple-600 dark:text-purple-400 mt-1 truncate" title="{{ maior_frente.nome if maior_frente else 'Nenhum' }}">
+                {{ maior_frente.nome if maior_frente else 'Nenhum' }}
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                {% if maior_frente %}
+                    🔥 {{ "%.1f"|format(maior_frente.percentual) }}% do total ({{ "%.0f"|format(maior_frente.total_litros) }} L)
+                {% else %}
+                    Sem dados no período
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- GRÁFICO DINÂMICO DE TENDÊNCIA DE CONSUMO -->
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <span>📈 Gráfico de Consumo por Frente de Serviço</span>
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Evolução temporal do volume alimentado por frente ({{ "Agrupado por Mês" if agrupar_por_mes else "Agrupado por Dia" }}).
+                </p>
+            </div>
+        </div>
+
+        {% if series_frentes and labels_grafico %}
+            <div id="chartTrendFrentes" class="w-full min-h-[320px]"></div>
+        {% else %}
+            <div class="p-12 text-center text-slate-400 dark:text-slate-500 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+                <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                Sem histórico suficiente no período selecionado para exibição do gráfico.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- TABELA DETALHADA POR FRENTE DE SERVIÇO -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden" x-data="{ busca: '' }">
+        <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white">
+                    📋 Detalhamento por Frente Operacional
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Clique em uma frente de serviço para expandir e ver os equipamentos atendidos.
+                </p>
+            </div>
+
+            <!-- Busca interna -->
+            <div class="w-full sm:w-64">
+                <input type="text" x-model="busca" placeholder="🔍 Buscar frente..." class="w-full text-xs px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm divide-y divide-slate-200 dark:divide-slate-700">
+                <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold uppercase text-[11px] tracking-wider">
+                    <tr>
+                        <th class="px-5 py-3">Frente de Serviço</th>
+                        <th class="px-4 py-3 text-right">Volume (L)</th>
+                        <th class="px-4 py-3 text-center" style="width: 20%;">Participação (%)</th>
+                        <th class="px-4 py-3 text-right">Média Diária</th>
+                        <th class="px-4 py-3 text-center">Registros</th>
+                        <th class="px-4 py-3 text-center">Equipamentos</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for f in frentes_lista %}
+                    <tr x-data="{ aberto: false }" 
+                        x-show="!busca || '{{ f.nome }}'.toLowerCase().includes(busca.toLowerCase())"
+                        class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        
+                        <!-- Coluna 1: Nome + Acordo -->
+                        <td class="px-5 py-4 font-bold text-slate-800 dark:text-slate-100">
+                            <div class="flex items-center gap-2">
+                                <button @click="aberto = !aberto" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-mono transition">
+                                    <span x-text="aberto ? '▼' : '►'"></span>
+                                </button>
+                                <span>{{ f.nome }}</span>
+                            </div>
+
+                            <!-- Painel Expansível de Detalhes -->
+                            <div x-show="aberto" x-transition class="mt-3 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-2 font-normal">
+                                <div class="font-bold text-slate-700 dark:text-slate-300">🚜 Equipamentos Atendidos ({{ f.qtd_equipamentos }}):</div>
+                                <div class="flex flex-wrap gap-1.5">
+                                    {% for eq in f.lista_equipamentos %}
+                                        <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold">{{ eq }}</span>
+                                    {% else %}
+                                        <span class="text-slate-400 italic">Nenhum registrado</span>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="font-bold text-slate-700 dark:text-slate-300 pt-1">⛽ Detalhes por Combustível:</div>
+                                <div class="flex flex-wrap gap-3 text-slate-600 dark:text-slate-300">
+                                    {% for comb_nome, comb_vol in f.combustiveis.items() %}
+                                        <div><strong class="text-slate-800 dark:text-slate-100">{{ comb_nome }}:</strong> {{ "%.2f"|format(comb_vol) }} L</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Volume -->
+                        <td class="px-4 py-4 text-right font-black text-blue-600 dark:text-blue-400 text-base whitespace-nowrap">
+                            {{ "%.2f"|format(f.total_litros) }} L
+                        </td>
+
+                        <!-- Barra de Participação -->
+                        <td class="px-4 py-4 text-center">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full" style="width: {{ f.percentual }}%"></div>
+                                </div>
+                                <span class="text-xs font-bold text-slate-600 dark:text-slate-300 min-w-[45px] text-right">{{ "%.1f"|format(f.percentual) }}%</span>
+                            </div>
+                        </td>
+
+                        <!-- Média Diária -->
+                        <td class="px-4 py-4 text-right font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                            {{ "%.2f"|format(f.media_diaria) }} L/dia
+                        </td>
+
+                        <!-- Registros -->
+                        <td class="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-400">
+                            {{ f.qtd_abastecimentos }}
+                        </td>
+
+                        <!-- Equipamentos -->
+                        <td class="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-400">
+                            {{ f.qtd_equipamentos }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-5 py-8 text-center text-slate-400">
+                            Nenhum registro de consumo encontrado para os filtros informados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- APEXCHARTS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+{% if series_frentes and labels_grafico %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var options = {
+        series: {{ series_frentes|tojson }},
+        chart: {
+            type: 'line',
+            height: 350,
+            toolbar: { show: true },
+            zoom: { enabled: true },
+            fontFamily: 'Inter, sans-serif'
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 3
+        },
+        colors: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'],
+        xaxis: {
+            categories: {{ labels_grafico|tojson }},
+            labels: {
+                style: { colors: '#64748b', fontSize: '11px', fontWeight: 600 }
+            }
+        },
+        yaxis: {
+            title: { text: 'Litros (L)' },
+            labels: {
+                formatter: function (val) {
+                    return val.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' L';
+                },
+                style: { colors: '#64748b', fontSize: '11px' }
+            }
+        },
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: {
+                formatter: function (val) {
+                    return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L';
+                }
+            }
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'left'
+        },
+        grid: {
+            borderColor: '#e2e8f0',
+            strokeDashArray: 4
+        }
+    };
+
+    var chart = new ApexCharts(document.querySelector("#chartTrendFrentes"), options);
+    chart.render();
+});
+</script>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório por Obra - T.A.N.K{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto space-y-4 px-2" x-data="{ 
+    openModal: false, 
+    copied: false,
+    reportText: '',
+    
+    copyToClipboard() {
+        navigator.clipboard.writeText(this.reportText);
+        this.copied = true;
+        setTimeout(() => this.copied = false, 2000);
+    },
+    
+    openWhatsAppModal() {
+        this.reportText = this.generateReport();
+        this.openModal = true;
+    },
+    
+        generateReport() {
+        let text = '📊 *RELATÓRIO DIÁRIO DE COMBUSTÍVEIS*\n';
+        text += '📅 _{{ data_atual }}_\n\n';
+        
+        {% for obra_data in obras_dados %}
+        text += '===============================\n';
+        text += '⛽ *{{ obra_data.obra.nome|upper }}* ({{ obra_data.obra.codigo }})\n';
+        {% if obra_data.obra.local %}
+        text += '📍 _{{ obra_data.obra.local }}_\n';
+        {% endif %}
+        text += '\n🛢️ *CANTEIRO (ESTOQUE FIXO)*\n';
+        
+        {% if obra_data.resumo_canteiro %}
+            {% for item in obra_data.resumo_canteiro %}
+            text += '  • {{ item.tipo }}: *' + this.formatNumber({{ item.saldo }}) + 'L*\n';
+            {% endfor %}
+        {% else %}
+            text += '  _Sem saldo em canteiro_\n';
+        {% endif %}
+        
+        text += '\n🚜 *COMBOIOS (ESTOQUE MÓVEL)*\n';
+        {% if obra_data.resumo_comboios %}
+            {% for comboio in obra_data.resumo_comboios %}
+            text += '  • {{ comboio.nome }} ({{ comboio.tipo }}): *' + this.formatNumber({{ comboio.saldo }}) + 'L*\n';
+            {% endfor %}
+        {% else %}
+            text += '  _Nenhum comboio em operação_\n';
+        {% endif %}
+        
+        text += '\n📊 *RESUMO POR TIPO*\n';
+        {% if obra_data.resumo_tipos %}
+            {% for tipo in obra_data.resumo_tipos %}
+            text += '  • {{ tipo.nome }}: *' + this.formatNumber({{ tipo.disponivel }}) + 'L*\n';
+            {% endfor %}
+        {% endif %}
+        
+        text += '\n';
+        {% endfor %}
+        
+        text += '⚙️ _Gerado via T.A.N.K - Gestão Inteligente de Combustíveis_';
+        return text;
+    },
+    
+    formatNumber(num) {
+        return Math.round(num).toLocaleString('pt-BR');
+    }
+}">
+    
+    <!-- Cabeçalho Principal da Página -->
+    <div class="text-center border-b border-slate-200 dark:border-slate-700 pb-2">
+        <h1 class="text-base font-bold text-slate-800 dark:text-white">📊 Relatório de Combustíveis</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-[11px]">{{ data_atual }}</p>
+    </div>
+
+    {% if obras_dados %}
+        {% for obra_data in obras_dados %}
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden font-sans">
+            
+            <!-- Cabeçalho da Obra -->
+            <div class="bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 px-4 py-3 text-white border-b border-blue-500/30">
+                <div class="flex items-start gap-2.5">
+                    <span class="text-2xl mt-0.5">⛽</span>
+                    <div>
+                        <h2 class="text-base font-black tracking-wide uppercase leading-tight text-white">
+                            {{ obra_data.obra.nome }}
+                        </h2>
+                        <span class="inline-block px-2 py-0.5 mt-1 rounded bg-blue-500/20 text-blue-300 text-[10px] font-extrabold tracking-wider border border-blue-400/30">
+                            {{ obra_data.obra.codigo }}
+                        </span>
+                    </div>
+                </div>
+                {% if obra_data.obra.local %}
+                <div class="mt-2 text-blue-200 text-[11px] font-medium flex items-center gap-1.5 pt-1 border-t border-white/10">
+                    <span>📍</span> {{ obra_data.obra.local }}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="p-3 space-y-4">
+                
+                <!-- ===================================== -->
+                <!-- BLOCO 1: RESUMO RÁPIDO DO CANTEIRO & COMBOIOS -->
+                <!-- ===================================== -->
+                <div class="bg-slate-900 text-slate-100 rounded-xl p-3 shadow-md border border-slate-800 space-y-3">
+                    
+                    <!-- CANTEIRO -->
+                    <div>
+                        <div class="flex justify-between items-center pb-1 border-b border-slate-700">
+                            <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                                🛢️ CANTEIRO
+                            </h3>
+                            <span class="text-[9px] text-slate-400 uppercase font-bold">Estoque Fixo</span>
+                        </div>
+                        
+                        {% if obra_data.resumo_canteiro %}
+                        <div class="mt-2 space-y-1">
+                            {% for item in obra_data.resumo_canteiro %}
+                            <div class="flex justify-between items-center text-xs py-0.5">
+                                <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                    {% if 'S10' in item.tipo %}🟢
+                                    {% elif 'S500' in item.tipo %}🔴
+                                    {% elif 'GASOLINA' in item.tipo %}🟡
+                                    {% elif 'ARLA' in item.tipo %}💧
+                                    {% else %}⛽{% endif %}
+                                    {{ item.tipo }}
+                                </span>
+                                <span class="font-mono font-extrabold text-amber-400 text-xs">
+                                    {{ "%.0f"|format(item.saldo) }}L
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-[10px] text-slate-500 italic mt-1">Sem saldo em canteiro</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- DIVISOR -->
+                    <div class="border-t border-dashed border-slate-700"></div>
+
+                    <!-- COMBOIOS -->
+                    <div>
+                        <div class="flex justify-between items-center pb-1 border-b border-slate-700">
+                            <h3 class="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                                🚜 COMBOIOS
+                            </h3>
+                            <span class="text-[9px] text-slate-400 uppercase font-bold">Estoque Móvel</span>
+                        </div>
+                        
+                        {% if obra_data.resumo_comboios %}
+                        <div class="mt-2 space-y-1">
+                            {% for comboio in obra_data.resumo_comboios %}
+                            <div class="flex justify-between items-center text-xs py-0.5">
+                                <div class="flex items-center gap-1.5 truncate">
+                                    <span class="text-slate-200 font-bold truncate">{{ comboio.nome }}</span>
+                                    <span class="text-[10px] text-amber-300/80 font-normal">({{ comboio.tipo }})</span>
+                                </div>
+                                <span class="font-mono font-extrabold text-amber-400 text-xs flex-shrink-0 ml-2">
+                                    {{ "%.0f"|format(comboio.saldo) }}L
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-[10px] text-slate-500 italic mt-1">Nenhum comboio em operação</p>
+                        {% endif %}
+                    </div>
+
+                </div>
+
+                <!-- ===================================== -->
+                <!-- BLOCO 2: RESUMO CONSOLIDADO POR TIPO -->
+                <!-- ===================================== -->
+                {% if obra_data.resumo_tipos %}
+                <div class="bg-slate-900 text-white rounded-xl p-4 shadow-md border border-slate-800">
+                    <h4 class="text-xs font-black text-slate-200 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 pb-1.5 border-b border-slate-700">
+                        <span>📊</span> Resumo por Tipo de Combustível
+                    </h4>
+                    <div class="space-y-2">
+                        {% for tipo in obra_data.resumo_tipos %}
+                        <div class="flex justify-between items-center text-xs font-bold bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+                            <span class="text-slate-200 flex items-center gap-1.5">
+                                {% if 'S10' in tipo.nome %}🟢
+                                {% elif 'S500' in tipo.nome %}🔴
+                                {% elif 'GASOLINA' in tipo.nome %}🟡
+                                {% elif 'ARLA' in tipo.nome %}💧
+                                {% else %}⛽{% endif %}
+                                {{ tipo.nome }}
+                            </span>
+                            <span class="font-mono text-amber-400 font-black">
+                                {{ "%.0f"|format(tipo.disponivel) }}L
+                                <span class="text-slate-400 text-[10px] font-normal">({{ "%.0f"|format(tipo.percentual) }}%)</span>
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+            
+            <!-- Rodapé da Obra -->
+            <div class="bg-slate-50 dark:bg-slate-900/80 px-4 py-2 border-t border-slate-200 dark:border-slate-700">
+                <p class="text-[10px] text-slate-400 text-center font-medium">
+                    📅 {{ data_atual }} | 🛢️ {{ obra_data.total_tanques_fixos or 0 }} tanques | 🚜 {{ obra_data.total_comboios or 0 }} comboios 
+                </p>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <div class="text-center text-[10px] text-slate-400 pb-4">
+        T.A.N.K - Gestão de Combustíveis | {{ data_atual }}
+        </div>
+
+
+
+
+        <!-- Botão de Compartilhar -->
+        <div class="flex justify-center pb-2">
+            <button @click="openWhatsAppModal()"
+                    class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition active:scale-95 cursor-pointer shadow-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                </svg>
+                Compartilhar no WhatsApp
+            </button>
+        </div>
+        
+    {% else %}
+        <div class="text-center py-16">
+            <div class="text-5xl mb-3">⛽</div>
+            <p class="text-slate-500 font-bold">Nenhuma obra configurada</p>
+        </div>
+    {% endif %}
+    
+    
+
+    <!-- ========================================== -->
+    <!-- MODAL WHATSAPP                              -->
+    <!-- ========================================== -->
+    <div x-show="openModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" x-cloak>
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden" @click.away="openModal = false">
+            
+            <!-- Header do Modal -->
+            <div class="bg-gradient-to-r from-emerald-900 to-slate-900 px-5 py-4 text-white flex justify-between items-center border-b border-emerald-500/20">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 rounded-xl bg-emerald-500/20 text-emerald-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-black uppercase tracking-tight text-sm">Relatório para WhatsApp</h3>
+                        <p class="text-xs text-emerald-200/80">Formatado para envio em grupos de obra</p>
+                    </div>
+                </div>
+                <button @click="openModal = false" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Conteúdo do Modal -->
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-slate-600 dark:text-slate-400">
+                    Copie o texto abaixo e cole diretamente no seu grupo do WhatsApp para enviar o resumo diário.
+                </p>
+
+                <div class="relative bg-slate-900 text-slate-200 p-4 rounded-xl border border-slate-800 text-xs font-mono max-h-72 overflow-y-auto whitespace-pre-wrap select-all" x-text="reportText"></div>
+
+                <div class="flex justify-between items-center pt-2">
+                    <span class="text-[11px] font-semibold text-slate-400">
+                        {{ obras_dados|length }} obra(s) incluída(s) no relatório
+                    </span>
+
+                    <div class="flex gap-2">
+                        <button @click="openModal = false"
+                                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                            Fechar
+                        </button>
+                        <button @click="copyToClipboard()"
+                                class="px-5 py-2 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95">
+                            <svg x-show="!copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                            <svg x-show="copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span x-text="copied ? 'Copiado!' : 'Copiar Texto'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
